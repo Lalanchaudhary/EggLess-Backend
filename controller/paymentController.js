@@ -2,11 +2,13 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const User = require('../models/User');
-
+require("dotenv").config();
+console.log('RAZORPAY_KEY_ID:', process.env.RAZORPAY_KEY_ID);
+console.log('RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET);
 // Initialize Razorpay
 const razorpay = new Razorpay({
-  key_id:'rzp_test_1FGhUyAJx6vnYE',
-  key_secret:'c62L38n5PxbRhgbLkEJjmY9U'
+  key_id:process.env.RAZORPAY_KEY_ID,
+  key_secret:process.env.RAZORPAY_KEY_SECRET
 });
 
 // Create Razorpay order
@@ -240,7 +242,7 @@ const payWithWallet = async (req, res) => {
       shippingAddress,
       paymentMethod: 'Wallet',
       paymentStatus: 'Completed',
-      status: 'Processing'
+      status: 'Pending'
     });
 
     const savedOrder = await newOrder.save();
