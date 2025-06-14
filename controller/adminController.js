@@ -122,15 +122,21 @@ exports.getOrderById = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { orderId } = req.params;
+    const { id } = req.params;
     const { status } = req.body;
-
+    console.log('====================================');
+    console.log("order status",req.params);
+    console.log('====================================');
     const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid order status' });
     }
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(id);
+    console.log('====================================');
+    console.log("order status",order);
+    console.log('====================================');
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
@@ -138,15 +144,15 @@ exports.updateOrderStatus = async (req, res) => {
     order.status = status;
 
     // Optional: Add timestamp updates for status transitions
-    if (status === 'Processing') {
-      order.processedAt = new Date();
-    } else if (status === 'Shipped') {
-      order.shippedAt = new Date();
-    } else if (status === 'Delivered') {
-      order.deliveredAt = new Date();
-    } else if (status === 'Cancelled') {
-      order.cancelledAt = new Date();
-    }
+    // if (status === 'Processing') {
+    //   order.processedAt = new Date();
+    // } else if (status === 'Shipped') {
+    //   order.shippedAt = new Date();
+    // } else if (status === 'Delivered') {
+    //   order.deliveredAt = new Date();
+    // } else if (status === 'Cancelled') {
+    //   order.cancelledAt = new Date();
+    // }
 
     await order.save();
 

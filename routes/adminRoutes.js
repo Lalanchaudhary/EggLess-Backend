@@ -25,7 +25,6 @@ router.delete('/products/:id', adminController.deleteProduct);
 // Orders Management
 router.get('/orders', adminController.getAllOrders);
 router.get('/orders/:id', adminController.getOrderById);
-router.put('/orders/:id', adminController.updateOrderStatus);
 router.put('/orders/:id/status', adminController.updateOrderStatus);
 // Analytics
 router.get('/analytics/sales', adminController.getSalesAnalytics);
