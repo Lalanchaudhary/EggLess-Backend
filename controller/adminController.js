@@ -122,21 +122,38 @@ exports.getOrderById = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
   try {
+    const { orderId } = req.params;
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).populate('user', 'name email')
-     .populate('items.product', 'name price');
 
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+    const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid order status' });
     }
 
-    res.json({ order });
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    order.status = status;
+
+    // Optional: Add timestamp updates for status transitions
+    if (status === 'Processing') {
+      order.processedAt = new Date();
+    } else if (status === 'Shipped') {
+      order.shippedAt = new Date();
+    } else if (status === 'Delivered') {
+      order.deliveredAt = new Date();
+    } else if (status === 'Cancelled') {
+      order.cancelledAt = new Date();
+    }
+
+    await order.save();
+
+    res.json({ message: 'Order status updated successfully', order });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Order status update error:', error);
+    res.status(500).json({ error: 'Failed to update order status' });
   }
 };
 
@@ -398,61 +415,3 @@ exports.deleteDeliveryBoy = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }; 
-
-// Process order (admin or system changes status from Pending to Processing)
-exports.processOrder = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    if (order.status !== 'Pending') {
-      return res.status(400).json({ error: 'Only pending orders can be processed' });
-    }
-
-    order.status = 'Processing';
-    order.processedAt = new Date();
-
-    await order.save();
-    res.json({
-      message: 'Order marked as processing',
-      order
-    });
-  } catch (error) {
-    console.error('Process order error:', error);
-    res.status(400).json({ error: error.message });
-  }
-};
-
-
-// Ship order (admin or system changes status from Processing to Shipped)
-exports.shipOrder = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    if (order.status !== 'Processing') {
-      return res.status(400).json({ error: 'Only processed orders can be shipped' });
-    }
-
-    order.status = 'Shipped';
-    order.shippedAt = new Date();
-    order.trackingNumber = req.body.trackingNumber || null;
-
-    await order.save();
-    res.json({
-      message: 'Order marked as shipped',
-      order
-    });
-  } catch (error) {
-    console.error('Ship order error:', error);
-    res.status(400).json({ error: error.message });
-  }
-};
