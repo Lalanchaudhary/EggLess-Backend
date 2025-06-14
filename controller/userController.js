@@ -375,16 +375,6 @@ exports.cancelOrder = async (req, res) => {
     order.cancellationReason = req.body.reason || 'Cancelled by user';
     
     await order.save();
-
-    // If order was paid, initiate refund process
-    if (order.paymentStatus === 'Paid') {
-      // Add refund logic here
-      // This could involve:
-      // 1. Creating a refund record
-      // 2. Processing the refund through payment gateway
-      // 3. Updating user's wallet if applicable
-    }
-
     res.json({
       message: 'Order cancelled successfully',
       order
@@ -395,11 +385,4 @@ exports.cancelOrder = async (req, res) => {
   }
 };
 
-// Get membership details
-exports.getMembership = async (req, res) => {
-  try {
-    res.json(req.user.membership);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-}; 
+

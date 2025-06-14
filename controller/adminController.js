@@ -398,3 +398,61 @@ exports.deleteDeliveryBoy = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 }; 
+
+// Process order (admin or system changes status from Pending to Processing)
+exports.processOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.status !== 'Pending') {
+      return res.status(400).json({ error: 'Only pending orders can be processed' });
+    }
+
+    order.status = 'Processing';
+    order.processedAt = new Date();
+
+    await order.save();
+    res.json({
+      message: 'Order marked as processing',
+      order
+    });
+  } catch (error) {
+    console.error('Process order error:', error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
+// Ship order (admin or system changes status from Processing to Shipped)
+exports.shipOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.status !== 'Processing') {
+      return res.status(400).json({ error: 'Only processed orders can be shipped' });
+    }
+
+    order.status = 'Shipped';
+    order.shippedAt = new Date();
+    order.trackingNumber = req.body.trackingNumber || null;
+
+    await order.save();
+    res.json({
+      message: 'Order marked as shipped',
+      order
+    });
+  } catch (error) {
+    console.error('Ship order error:', error);
+    res.status(400).json({ error: error.message });
+  }
+};

@@ -26,7 +26,8 @@ router.delete('/products/:id', adminController.deleteProduct);
 router.get('/orders', adminController.getAllOrders);
 router.get('/orders/:id', adminController.getOrderById);
 router.put('/orders/:id', adminController.updateOrderStatus);
-
+router.post('/orders/processing', adminController.processOrder);
+router.post('/orders/shipped', adminController.shipOrder);
 // Analytics
 router.get('/analytics/sales', adminController.getSalesAnalytics);
 router.get('/analytics/users', adminController.getUserAnalytics);

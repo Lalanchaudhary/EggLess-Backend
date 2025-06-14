@@ -34,7 +34,6 @@ router.patch('/settings', auth, userController.updateSettings);
 router.get('/orders', auth, userController.getOrders);
 router.get('/orders/:orderId/cancel', auth, userController.cancelOrder);
 
-// Membership routes
-router.get('/membership', auth, userController.getMembership);
+
 
 module.exports = router; 
