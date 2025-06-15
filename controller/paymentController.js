@@ -13,7 +13,6 @@ const razorpay = new Razorpay({
 
 // Create Razorpay order
 const paymentOrder = async (req, res) => {
-  console.log(req.body);
   
   try {
     // Check if user is authenticated
@@ -75,9 +74,6 @@ const paymentOrder = async (req, res) => {
 
 // Verify Razorpay payment
 const VerifyOrder = async (req, res) => {
-  console.log('====================================');
-  console.log(req.body);
-  console.log('====================================');
   try {
     // Check if user is authenticated
     if (!req.user) {
