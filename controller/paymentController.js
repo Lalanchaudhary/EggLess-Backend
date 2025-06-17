@@ -313,9 +313,6 @@ const refundToWallet = async (req, res) => {
 
 // Get wallet transactions
 const getWalletTransactions = async (req, res) => {
-  console.log('====================================');
-  console.log("transaction");
-  console.log('====================================');
   try {
     const userId = req.user._id;
 
@@ -340,6 +337,96 @@ const getWalletTransactions = async (req, res) => {
   }
 };
 
+// Add money to wallet
+const addMoneyToWallet = async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    if (!req.user || !amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid user or amount' });
+    }
+
+    // Create Razorpay order
+    const options = {
+      amount: amount * 100, // in paise
+      currency: 'INR',
+      receipt: `wallet_topup_${Date.now()}`
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    // You may store this wallet top-up request in DB if needed
+
+    res.json({
+      ...order,
+      walletTopUp: true
+    });
+  } catch (error) {
+    console.error('Error in addMoneyToWallet:', error);
+    res.status(500).json({ message: 'Failed to create wallet top-up order' });
+  }
+};
+
+// Verify wallet top-up
+const verifyWalletTopUp = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      amount
+    } = req.body;
+
+    if (!req.user || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !amount) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: 'Invalid signature' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // ✅ Ensure wallet and transactions exist
+    if (!user.wallet) {
+      user.wallet = { balance: 0, transactions: [] };
+    }
+    if (!user.wallet.transactions) {
+      user.wallet.transactions = [];
+    }
+
+    // 💰 Update balance and log transaction
+    user.wallet.balance += Number(amount);
+    user.wallet.transactions.push({
+      amount: Number(amount),
+      type: 'Credit',
+      description: 'Money is added',
+      date: new Date()
+    });
+
+    await user.save();
+
+
+    res.json({
+      message: 'Wallet topped up successfully',
+      newBalance: user.wallet.balance
+    });
+  } catch (error) {
+    console.error('Error verifying wallet top-up:', error);
+    res.status(500).json({ message: 'Failed to verify wallet top-up' });
+  }
+};
+
+
+
+
 
 module.exports = {
   paymentOrder,
@@ -348,6 +435,8 @@ module.exports = {
   confirmCODPayment,
   payWithWallet,
   refundToWallet,
-  getWalletTransactions
+  getWalletTransactions,
+  addMoneyToWallet,
+  verifyWalletTopUp  
 };
   

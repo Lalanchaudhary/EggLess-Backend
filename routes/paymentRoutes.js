@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { paymentOrder, VerifyOrder, handleCODPayment, confirmCODPayment,payWithWallet, refundToWallet,getWalletTransactions } = require('../controller/paymentController');
+const { paymentOrder, VerifyOrder, handleCODPayment, confirmCODPayment,payWithWallet, refundToWallet,getWalletTransactions ,addMoneyToWallet , verifyWalletTopUp} = require('../controller/paymentController');
 const { protect } = require('../middleware/authMiddleware');
 const  auth  = require('../middleware/auth');
 // Razorpay routes
@@ -16,4 +16,6 @@ router.put('/cod/:orderId/confirm', protect, confirmCODPayment);
 router.post('/payment/wallet', auth, payWithWallet);
 router.post('/refund-to-wallet/:orderId', auth, refundToWallet);
 router.get('/wallet/transactions', auth, getWalletTransactions);
+router.post('/wallet/add', auth, addMoneyToWallet);
+router.post('/wallet/verify', auth, verifyWalletTopUp);
 module.exports = router;
