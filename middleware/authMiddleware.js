@@ -75,4 +75,34 @@ exports.authorize = (...roles) => {
     };
 };
 
+exports.verifyToken = async (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+  
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Check if it's an admin or user
+      if (decoded.role === 'admin' || decoded.role === 'delivery_boy') {
+        const admin = await Admin.findById(decoded.id);
+        if (!admin) {
+          return res.status(401).json({ message: 'Admin not found' });
+        }
+        req.user = { id: admin._id, role: admin.role };
+      } else {
+        const user = await User.findById(decoded.id);
+        if (!user) {
+          return res.status(401).json({ message: 'User not found' });
+        }
+        req.user = { id: user._id, role: user.role };
+      }
+      
+      next();
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
 

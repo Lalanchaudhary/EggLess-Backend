@@ -5,115 +5,17 @@ const jwt = require("jsonwebtoken")
 
 require('dotenv').config()
 
-// User Authentication
-exports.userLogin = async (req, res) => { 
-    try {
-        const { email, password } = req.body
-
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Please provide email and password"
-            })
-        }
-
-        let user = await User.findOne({ email }).select("+password") 
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "Invalid credentials"
-            })
-        }
-
-        const payload = {
-            email: user.email,
-            id: user._id,
-            role: 'user'
-        }
-
-        if (await bcrypt.compare(password, user.password)) {
-            let token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" })
-            user = user.toObject()
-            user.token = token
-            user.password = undefined
-
-            const option = {
-                expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-                httpOnly: true
-            }
-
-            res.cookie("token", token, option).status(200).json({
-                success: true,
-                token,
-                user,
-                message: "Login successful"
-            })
-
-        } else {
-            return res.status(403).json({
-                success: false,
-                message: "Invalid credentials"
-            })
-        }
-
-    } catch (e) {
-        console.log(e)
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        })
-    }
-}
-
-exports.userSignup = async (req, res) => {
-    try {
-        const { name, email, password } = req.body
-        const existingUser = await User.findOne({ email })
-        if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: "User already exists"
-            })
-        }
-
-        let hashedpassword;
-        try {
-            hashedpassword = await bcrypt.hash(password, 10)
-        } catch (e) {
-            return res.status(500).json({
-                success: false,
-                message: "Error hashing password"
-            })
-        }
-
-        const newUser = await User.create({
-            name,
-            email,
-            password: hashedpassword
-        })
-
-        return res.status(200).json({
-            success: true,
-            message: "User created successfully"
-        })
-
-    } catch (e) {
-        console.log(e)
-        return res.status(500).json({
-            success: false,
-            message: "Please try again later"
-        })
-    }
-}
-
 // Admin Authentication
 exports.adminLogin = async (req, res) => {
+    console.log('====================================');
+    console.log("Admin login attempt:", { email: req.body.email, role: req.body.role });
+    console.log('====================================');
     try {
         const { email, password, role } = req.body;
 
         // Validate required fields
         if (!email || !password) {
+            console.log("Missing email or password");
             return res.status(400).json({
                 success: false,
                 message: "Please provide email and password"
@@ -122,8 +24,10 @@ exports.adminLogin = async (req, res) => {
 
         // Find admin by email
         let admin = await Admin.findOne({ email }).select("+password");
+        console.log("Admin found:", admin ? "Yes" : "No");
 
         if (!admin) {
+            console.log("Admin not found for email:", email);
             return res.status(404).json({
                 success: false,
                 message: "Invalid credentials"
@@ -132,6 +36,7 @@ exports.adminLogin = async (req, res) => {
 
         // Check if account is active
         if (!admin.isActive) {
+            console.log("Admin account is deactivated");
             return res.status(403).json({
                 success: false,
                 message: "Account is deactivated"
@@ -140,6 +45,7 @@ exports.adminLogin = async (req, res) => {
 
         // Validate role if provided
         if (role && admin.role !== role) {
+            console.log("Role mismatch:", { expected: role, actual: admin.role });
             return res.status(403).json({
                 success: false,
                 message: `Access denied. ${role} privileges required.`
@@ -147,7 +53,10 @@ exports.adminLogin = async (req, res) => {
         }
 
         // Verify password
-        if (!await admin.comparePassword(password)) {
+        const isPasswordValid = await admin.comparePassword(password);
+        console.log("Password validation:", isPasswordValid ? "Success" : "Failed");
+        
+        if (!isPasswordValid) {
             return res.status(403).json({
                 success: false,
                 message: "Invalid credentials"
@@ -164,6 +73,7 @@ exports.adminLogin = async (req, res) => {
 
         // Generate token
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" });
+        console.log("JWT token generated successfully");
 
         // Get admin profile without sensitive data
         admin = admin.getProfile();
@@ -174,17 +84,16 @@ exports.adminLogin = async (req, res) => {
             lastLogin: new Date(),
             $inc: { loginCount: 1 } // Optional: track login count
         });
+        
         // Set cookie options
         const cookieOptions = {
             expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-            sameSite: 'strict'
+            sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
         };
 
-        console.log('====================================');
-        console.log(req.body);
-        console.log('====================================');
+        console.log("Cookie options:", cookieOptions);
 
         // Send response
         res.cookie("token", token, cookieOptions).status(200).json({
@@ -194,12 +103,26 @@ exports.adminLogin = async (req, res) => {
             message: "Login successful"
         });
 
+        console.log("Admin login successful for:", email);
+
     } catch (e) {
         console.error('Admin login error:', e);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
         });
+    }
+};
+
+exports.verifyAdmin = async (req, res) => {
+    try {
+      const admin = await Admin.findById(req.user.id);
+      if (!admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+      res.json({ success: true, admin: admin.getProfile() });
+    } catch (err) {
+      res.status(500).json({ message: "Server error" });
     }
 };
 
