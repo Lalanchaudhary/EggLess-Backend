@@ -56,6 +56,20 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
+  // Handle admin connection
+  socket.on("admin_connect", (data) => {
+    console.log("👨‍💼 Admin connected:", socket.id);
+    socket.join("admin_room");
+    socket.emit("admin_connected", { message: "Admin connected successfully" });
+  });
+
+  // Handle user connection
+  socket.on("user_connect", (data) => {
+    console.log("👤 User connected:", socket.id);
+    socket.join("user_room");
+    socket.emit("user_connected", { message: "User connected successfully" });
+  });
+
   // Example: Receive event from client
   socket.on("message", (data) => {
     console.log("Received message:", data);
@@ -77,3 +91,6 @@ server.listen(port, () => {
 
 // Connect to MongoDB
 connectDB();
+
+// Make io available globally
+global.io = io;

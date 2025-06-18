@@ -81,6 +81,9 @@ const orderSchema = new mongoose.Schema({
       }
     }
   },
+    orderInstructions: {
+    type: String
+  },
   deliveryInstructions: {
     type: String
   },

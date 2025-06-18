@@ -2,6 +2,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const SocketService = require('../services/socketService');
 require("dotenv").config();
 console.log('RAZORPAY_KEY_ID:', process.env.RAZORPAY_KEY_ID);
 console.log('RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET);
@@ -13,36 +14,33 @@ const razorpay = new Razorpay({
 
 // Create Razorpay order
 const paymentOrder = async (req, res) => {
-  
   try {
     // Check if user is authenticated
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { totalAmount, currency = 'INR', shippingAddress, items, userId } = req.body;
+    const {items, totalAmount, currency = 'INR', shippingAddress, userId } = req.body;
 
-
+    const totalAmountInt = parseInt(totalAmount);
     // Validate amount
-    if (!totalAmount || totalAmount <= 0) {
+    if (!totalAmountInt || totalAmountInt <= 0) {
       return res.status(400).json({ message: 'Invalid amount' });
     }
     
 
     const options = {
-      amount: totalAmount * 100, // Razorpay expects amount in paise
+      amount: totalAmountInt * 100, // Razorpay expects amount in paise
       currency,
       receipt: `receipt_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
-    console.log('====================================');
-    console.log(order);
-    console.log('====================================');
+
     // Create a pending order in our database
     const newOrder = new Order({
       user: req.user._id,
-      totalAmount,
+      totalAmount: totalAmountInt,
       paymentMethod: 'Razorpay',
       status: 'Pending',
       paymentStatus: 'Pending',
@@ -58,6 +56,19 @@ const paymentOrder = async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, {
       $push: { orders: newOrder._id }
     });
+
+    // Send notification to admin about new order
+    const orderData = {
+      orderId: newOrder.orderId,
+      totalAmount: newOrder.totalAmount,
+      paymentMethod: newOrder.paymentMethod,
+      status: newOrder.status,
+      customerName: req.user.name || req.user.email,
+      items: newOrder.items,
+      createdAt: newOrder.createdAt
+    };
+    
+    SocketService.notifyAdminNewOrder(orderData);
 
     res.json({
       ...order,
@@ -119,6 +130,17 @@ const VerifyOrder = async (req, res) => {
         signature: razorpay_signature
       });
 
+      // Send notification to admin about payment completion
+      const orderData = {
+        orderId: order.orderId,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        customerName: req.user.name || req.user.email
+      };
+      
+      SocketService.notifyAdminPaymentCompleted(orderData);
+
       res.json({
         message: 'Payment verified successfully',
         order
@@ -147,11 +169,17 @@ const handleCODPayment = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    const totalAmountInt = parseInt(totalAmount);
+    // Validate amount
+    if (!totalAmountInt || totalAmountInt <= 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
     // Create new order with COD payment method
     const order = new Order({
       user: req.user._id,
       items,
-      totalAmount,
+      totalAmount: totalAmountInt,
       shippingAddress,
       paymentMethod: 'COD',
       status: 'Pending',
@@ -164,6 +192,19 @@ const handleCODPayment = async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, {
       $push: { orders: order._id }
     });
+
+    // Send notification to admin about new COD order
+    const orderData = {
+      orderId: order.orderId,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      status: order.status,
+      customerName: req.user.name || req.user.email,
+      items: order.items,
+      createdAt: order.createdAt
+    };
+    
+    SocketService.notifyAdminNewOrder(orderData);
 
     res.status(201).json({
       message: 'Order created successfully',
@@ -214,18 +255,24 @@ const payWithWallet = async (req, res) => {
       return res.status(400).json({ message: 'Incomplete order data' });
     }
 
+    const totalAmountInt = parseInt(totalAmount);
+    // Validate amount
+    if (!totalAmountInt || totalAmountInt <= 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
     // Fetch user
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Check if wallet has sufficient balance
-    if (user.wallet.balance < totalAmount) {
+    if (user.wallet.balance < totalAmountInt) {
       return res.status(400).json({ message: 'Insufficient wallet balance' });
     }
 
     // Deduct amount from wallet (uses method you defined earlier)
     await user.updateWalletBalance(
-      totalAmount,
+      totalAmountInt,
       'Debit',
       'Payment for order using wallet'
     );
@@ -234,7 +281,7 @@ const payWithWallet = async (req, res) => {
     const newOrder = new Order({
       user: userId,
       items,
-      totalAmount,
+      totalAmount: totalAmountInt,
       shippingAddress,
       paymentMethod: 'Wallet',
       paymentStatus: 'Completed',
@@ -242,6 +289,19 @@ const payWithWallet = async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
+
+    // Send notification to admin about new wallet order
+    const orderData = {
+      orderId: savedOrder.orderId,
+      totalAmount: savedOrder.totalAmount,
+      paymentMethod: savedOrder.paymentMethod,
+      status: savedOrder.status,
+      customerName: req.user.name || req.user.email,
+      items: savedOrder.items,
+      createdAt: savedOrder.createdAt
+    };
+    
+    SocketService.notifyAdminNewOrder(orderData);
 
     res.status(201).json({
       message: 'Payment successful using wallet',
@@ -346,9 +406,15 @@ const addMoneyToWallet = async (req, res) => {
       return res.status(400).json({ message: 'Invalid user or amount' });
     }
 
+    const amountInt = parseInt(amount);
+    // Validate amount
+    if (!amountInt || amountInt <= 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
     // Create Razorpay order
     const options = {
-      amount: amount * 100, // in paise
+      amount: amountInt * 100, // in paise
       currency: 'INR',
       receipt: `wallet_topup_${Date.now()}`
     };
@@ -381,6 +447,12 @@ const verifyWalletTopUp = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    const amountInt = parseInt(amount);
+    // Validate amount
+    if (!amountInt || amountInt <= 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
@@ -403,16 +475,15 @@ const verifyWalletTopUp = async (req, res) => {
     }
 
     // 💰 Update balance and log transaction
-    user.wallet.balance += Number(amount);
+    user.wallet.balance += amountInt;
     user.wallet.transactions.push({
-      amount: Number(amount),
+      amount: amountInt,
       type: 'Credit',
       description: 'Money is added',
       date: new Date()
     });
 
     await user.save();
-
 
     res.json({
       message: 'Wallet topped up successfully',
@@ -423,10 +494,6 @@ const verifyWalletTopUp = async (req, res) => {
     res.status(500).json({ message: 'Failed to verify wallet top-up' });
   }
 };
-
-
-
-
 
 module.exports = {
   paymentOrder,
@@ -439,4 +506,3 @@ module.exports = {
   addMoneyToWallet,
   verifyWalletTopUp  
 };
-  
