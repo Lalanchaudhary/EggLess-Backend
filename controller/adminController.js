@@ -403,4 +403,56 @@ exports.deleteDeliveryBoy = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+// FCM Token Management
+exports.updateFCMToken = async (req, res) => {
+  try {
+    const { userId, fcmToken, userRole } = req.body;
+    
+    if (!userId || !fcmToken) {
+      return res.status(400).json({ message: 'User ID and FCM token are required' });
+    }
+
+    // Update the connected users map with the new FCM token
+    if (global.connectedUsers) {
+      const existingUser = global.connectedUsers.get(userId);
+      if (existingUser) {
+        existingUser.fcmToken = fcmToken;
+        existingUser.role = userRole || existingUser.role;
+        global.connectedUsers.set(userId, existingUser);
+      } else {
+        global.connectedUsers.set(userId, {
+          socketId: null, // Will be set when user connects via Socket.IO
+          fcmToken: fcmToken,
+          role: userRole || 'user'
+        });
+      }
+    }
+
+    // Also update the user's FCM token in the database
+    const user = await Admin.findById(userId);
+    if (user) {
+      user.fcmToken = fcmToken;
+      await user.save();
+    }
+
+    console.log(`✅ FCM token updated for user ${userId}:`, fcmToken);
+    
+    // Check if Firebase is initialized
+    if (global.firebaseInitialized) {
+      res.json({ 
+        message: 'FCM token updated successfully',
+        firebaseStatus: 'enabled'
+      });
+    } else {
+      res.json({ 
+        message: 'FCM token updated successfully (Firebase notifications disabled)',
+        firebaseStatus: 'disabled'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error updating FCM token:', error);
+    res.status(500).json({ message: 'Failed to update FCM token' });
+  }
 }; 

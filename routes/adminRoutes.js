@@ -26,6 +26,10 @@ router.delete('/products/:id', adminController.deleteProduct);
 router.get('/orders', adminController.getAllOrders);
 router.get('/orders/:id', adminController.getOrderById);
 router.put('/orders/:id/status', adminController.updateOrderStatus);
+
+// FCM Token Management
+router.post('/update-fcm-token', adminController.updateFCMToken);
+
 // Analytics
 router.get('/analytics/sales', adminController.getSalesAnalytics);
 router.get('/analytics/users', adminController.getUserAnalytics);

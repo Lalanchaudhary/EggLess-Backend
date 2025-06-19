@@ -28,6 +28,10 @@ const adminSchema = new mongoose.Schema({
         required: [true, 'Phone number is required'],
         unique: true
     },
+    fcmToken: {
+        type: String,
+        default: null
+    },
     permissions: [{
         type: String,
         enum: [
