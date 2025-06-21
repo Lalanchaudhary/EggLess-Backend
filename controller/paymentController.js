@@ -68,7 +68,6 @@ const paymentOrder = async (req, res) => {
       createdAt: newOrder.createdAt
     };
     
-    SocketService.notifyAdminNewOrder(orderData);
 
     res.json({
       ...order,
@@ -138,8 +137,8 @@ const VerifyOrder = async (req, res) => {
         paymentStatus: order.paymentStatus,
         customerName: req.user.name || req.user.email
       };
-      
-      SocketService.notifyAdminPaymentCompleted(orderData);
+      SocketService.notifyAdminNewOrder(orderData);
+      // SocketService.notifyAdminPaymentCompleted(orderData);
 
       res.json({
         message: 'Payment verified successfully',
@@ -156,6 +155,9 @@ const VerifyOrder = async (req, res) => {
 
 // Handle COD payment
 const handleCODPayment = async (req, res) => {
+  console.log('====================================');
+  console.log("Cod pe");
+  console.log('====================================');
   try {
     // Check if user is authenticated
     if (!req.user) {

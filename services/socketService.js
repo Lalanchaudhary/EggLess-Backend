@@ -35,7 +35,7 @@ class SocketService {
   static async notifyAdminNewOrder(orderData) {
     try {
       const message = `New order #${orderData.orderId} has been placed`;
-
+  
       if (this.isIoAvailable()) {
         global.io.to('admin_room').emit('admin_notification', {
           type: 'NEW_ORDER',
@@ -45,7 +45,7 @@ class SocketService {
         });
         console.log('📢 Socket.IO: Admin notification sent for order:', orderData.orderId);
       }
-
+  
       const tokens = await this.getAllAdminFCMTokens();
       if (tokens.length > 0) {
         await this.sendFCMToMultiple(tokens, {
@@ -56,13 +56,52 @@ class SocketService {
           orderId: orderData.orderId
         });
       }
-
+  
       return true;
     } catch (error) {
       console.error('❌ Error sending admin new order notification:', error);
       return false;
     }
   }
+  
+  // ✅ Keep this outside the above method
+  static async sendFCMToMultiple(tokens, notification, data = {}) {
+    for (const token of tokens) {
+      try {
+        await admin.messaging().send({
+          token,
+          android: {
+            notification: {
+              title: notification.title,
+              body: notification.body,
+              sound: 'order_ring', // ✅ Custom ringtone
+              channelId: 'order-notifications', // ✅ Must match Android config
+              clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+            },
+          },
+          apns: {
+            payload: {
+              aps: {
+                alert: {
+                  title: notification.title,
+                  body: notification.body
+                },
+                sound: 'myringtone.wav' // iOS
+              }
+            }
+          },
+          data: {
+            ...data
+          }
+        });
+  
+        console.log('📬 FCM: Sent to token', token);
+      } catch (err) {
+        console.error('❌ Error sending FCM to token:', token, err.message);
+      }
+    }
+  }
+  
 
   static async notifyAdminOrderStatusChange(orderData, oldStatus, newStatus) {
     try {

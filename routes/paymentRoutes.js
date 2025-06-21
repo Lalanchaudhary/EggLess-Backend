@@ -8,8 +8,8 @@ router.post('/create-order', auth, paymentOrder);
 router.post('/verify-order', auth, VerifyOrder);
 
 // COD routes
-router.post('/cod', protect, handleCODPayment);
-router.put('/cod/:orderId/confirm', protect, confirmCODPayment);
+router.post('/cod', auth, handleCODPayment);
+router.put('/cod/:orderId/confirm', auth, confirmCODPayment);
 
 
 // Wallet route
