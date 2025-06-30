@@ -17,7 +17,7 @@ router.patch('/profile', auth, userController.updateProfile);
 router.post('/addresses', auth, userController.addAddress);
 router.patch('/addresses/:addressId', auth, userController.updateAddress);
 router.delete('/addresses/:addressId', auth, userController.deleteAddress);
-
+router.post('/addresses/sync-location', auth, userController.syncLocationAddress);
 // UPI routes
 router.post('/upi', auth, userController.addUPI);
 router.patch('/upi/:upiId', auth, userController.updateUPI);

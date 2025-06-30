@@ -2,7 +2,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Cake');
 const User = require('../models/User');
 const Admin = require('../models/admin');
-
+const SocketService = require('../services/socketService');
 // Dashboard Statistics
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -19,11 +19,7 @@ exports.getDashboardStats = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5)
       .populate('user', 'name email')
-      .populate('items.product', 'name price');
-
-      console.log('====================================');
-      console.log("Hello dash",totalOrders);
-      console.log('====================================');
+      .populate('items.product', 'name price image');
 
     res.json({
       totalOrders,
@@ -94,9 +90,25 @@ exports.deleteUser = async (req, res) => {
 // Order Management
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
+    let query = {};
+
+    // If the logged-in user is an admin (not delivery boy), show all orders
+    // If it's a delivery boy, show only orders assigned to them
+    if (req.admin && req.admin.role === 'delivery_boy') {
+      query.assignedToDelievery_Boy = req.admin._id;
+    } else if (req.admin && req.admin.role === 'admin') {
+      // For admin users, show orders assigned to them or unassigned orders
+      query.$or = [
+        { assignedToAdmin: req.admin._id },
+        { assignedToAdmin: null }
+      ];
+    }
+
+    const orders = await Order.find(query)
       .populate('user', 'name email')
       .populate('items.product', 'name price image')
+      .populate('assignedToAdmin', 'name email')
+      .populate('assignedToDelievery_Boy', 'name email')
       .sort({ createdAt: -1 });
     res.json({ orders });
   } catch (error) {
@@ -125,7 +137,7 @@ exports.updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
-    
+
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid order status' });
     }
@@ -143,6 +155,34 @@ exports.updateOrderStatus = async (req, res) => {
   } catch (error) {
     console.error('Order status update error:', error);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+};
+
+exports.assignOrderToAdmin = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { adminId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Verify the admin exists and is active
+    const admin = await Admin.findById(adminId);
+    if (!admin || !admin.isActive || admin.role !== 'admin') {
+      return res.status(400).json({ error: 'Invalid admin or admin not active' });
+    }
+
+    order.assignedToAdmin = adminId;
+    await order.save();
+    res.json({
+      message: 'Order assigned to admin successfully',
+      order: await order.populate('assignedToAdmin', 'name email')
+    });
+  } catch (error) {
+    console.error('Order assignment error:', error);
+    res.status(500).json({ error: 'Failed to assign order' });
   }
 };
 
@@ -405,12 +445,216 @@ exports.deleteDeliveryBoy = async (req, res) => {
   }
 };
 
+exports.assignOrderToDeliveryBoy = async (req, res) => {
+  console.log('====================================');
+  console.log("Order assign", req.body);
+  console.log('====================================');
+  try {
+    const { orderId, deliveryBoyId } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const deliveryBoy = await Admin.findOne({ _id: deliveryBoyId, role: 'delivery_boy' });
+    if (!deliveryBoy) {
+      return res.status(404).json({ message: 'Delivery boy not found' });
+    }
+
+    order.assignedToDelievery_Boy = deliveryBoyId;
+    order.status = 'Shipped';
+    await order.save();
+    SocketService.notifyDeliveryBoyOrderAssigned(order);
+    res.json({ message: 'Order assigned successfully', order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getDeliveryBoyOrders = async (req, res) => {
+
+  try {
+    const deliveryBoyId = req.admin.id;
+    const orders = await Order.find({ assignedToDelievery_Boy: deliveryBoyId })
+      .populate('user', 'name email')
+      .populate('items.product', 'name price')
+      .sort({ createdAt: -1 });
+
+    res.json({ orders });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getDeliveryBoyOrderById = async (req, res) => {
+
+  try {
+    const deliveryBoyId = req.admin.id;
+    const { orderId } = req.params;
+    console.log('====================================');
+    console.log("deliveryBoyId :", deliveryBoyId);
+    console.log("orderId :", orderId);
+    console.log('====================================');
+    const order = await Order.findOne({ _id: orderId, assignedToDelievery_Boy: deliveryBoyId })
+      .populate('user', 'name email phoneNumber')
+      .populate('items.product', 'name price image')
+      .populate('assignedToDelievery_Boy', 'name email');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found or not assigned to you' });
+    }
+
+    res.json({ order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getDeliveryBoyProfile = async (req, res) => {
+  try {
+    const deliveryBoyId = req.admin.id;
+    const deliveryBoy = await Admin.findById(deliveryBoyId).select('-password');
+
+    if (!deliveryBoy || deliveryBoy.role !== 'delivery_boy') {
+      return res.status(404).json({ message: 'Delivery boy not found' });
+    }
+
+    res.json({ profile: deliveryBoy });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateDeliveryBoyOrderStatus = async (req, res) => {
+  try {
+    const deliveryBoyId = req.admin.id;
+    const { orderId } = req.params;
+    const { status, paymentStatus } = req.body;
+
+    const order = await Order.findOne({ _id: orderId, assignedToDelievery_Boy: deliveryBoyId });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found or not assigned to you' });
+    }
+
+    // Update order status if provided
+    if (status) {
+      const validStatuses = ['Delivered', 'Cancelled'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status update for delivery boy' });
+      }
+      order.status = status;
+      if (status === 'Delivered') {
+        order.actualDelivery = new Date();
+        // Auto-complete payment when order is delivered
+        order.paymentStatus = 'Completed';
+      }
+    }
+
+    // Update payment status if provided
+    if (paymentStatus) {
+      const validPaymentStatuses = ['Pending', 'Completed', 'Failed'];
+      if (!validPaymentStatuses.includes(paymentStatus)) {
+        return res.status(400).json({ message: 'Invalid payment status' });
+      }
+      order.paymentStatus = paymentStatus;
+    }
+
+    await order.save();
+
+    const message = status
+      ? `Order status updated to ${status}`
+      : `Payment status updated to ${paymentStatus}`;
+
+    res.json({ message, order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.verifyCODPayment = async (req, res) => {
+  try {
+    const deliveryBoyId = req.admin.id;
+    const { orderId } = req.params;
+    const { amount, notes } = req.body;
+
+    // Validate required fields
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Invalid amount' });
+    }
+
+    const order = await Order.findOne({ _id: orderId, assignedToDelievery_Boy: deliveryBoyId });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found or not assigned to you' });
+    }
+
+    // Check if order is COD
+    if (order.paymentMethod !== 'COD') {
+      return res.status(400).json({ message: 'This order is not a COD order' });
+    }
+
+    // Check if payment is already completed
+    if (order.paymentStatus === 'Completed') {
+      return res.status(400).json({ message: 'Payment already completed' });
+    }
+
+    // Verify amount matches order total
+    if (amount !== order.totalAmount) {
+      return res.status(400).json({
+        message: `Amount mismatch. Expected: ₹${order.totalAmount}, Received: ₹${amount}`
+      });
+    }
+
+    // Update order payment status
+    order.paymentStatus = 'Completed';
+    order.paymentDetails = {
+      verifiedBy: deliveryBoyId,
+      verifiedAt: new Date(),
+      amount: amount,
+      notes: notes || '',
+      method: 'COD'
+    };
+
+    await order.save();
+
+    // Send notification to admin about COD payment completion
+    const orderData = {
+      orderId: order.orderId,
+      totalAmount: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      customerName: order.user.name || order.user.email,
+      verifiedBy: req.admin.name || req.admin.email,
+      verifiedAt: order.paymentDetails.verifiedAt
+    };
+
+    // You can add socket notification here if needed
+    // SocketService.notifyAdminCODPaymentCompleted(orderData);
+
+    res.json({
+      message: 'COD payment verified successfully',
+      order,
+      paymentDetails: order.paymentDetails
+    });
+  } catch (error) {
+    console.error('Error verifying COD payment:', error);
+    res.status(500).json({ message: 'Error verifying COD payment' });
+  }
+};
+
 // FCM Token Management
 exports.updateFCMToken = async (req, res) => {
+  console.log('====================================');
+  console.log("fghgf");
+  console.log('====================================');
+
   try {
+    console.log('updateFCMToken called with body:', req.body);
     const { userId, fcmToken, userRole } = req.body;
-    
+
     if (!userId || !fcmToken) {
+      console.log('Missing userId or fcmToken');
       return res.status(400).json({ message: 'User ID and FCM token are required' });
     }
 
@@ -432,21 +676,23 @@ exports.updateFCMToken = async (req, res) => {
 
     // Also update the user's FCM token in the database
     const user = await Admin.findById(userId);
+    console.log('Result of Admin.findById:', user);
     if (user) {
       user.fcmToken = fcmToken;
       await user.save();
+      console.log('FCM token saved to admin:', user._id, user.fcmToken);
+    } else {
+      console.log('Admin not found for userId:', userId);
     }
 
-    console.log(`✅ FCM token updated for user ${userId}:`, fcmToken);
-    
     // Check if Firebase is initialized
     if (global.firebaseInitialized) {
-      res.json({ 
+      res.json({
         message: 'FCM token updated successfully',
         firebaseStatus: 'enabled'
       });
     } else {
-      res.json({ 
+      res.json({
         message: 'FCM token updated successfully (Firebase notifications disabled)',
         firebaseStatus: 'disabled'
       });
@@ -454,5 +700,29 @@ exports.updateFCMToken = async (req, res) => {
   } catch (error) {
     console.error('❌ Error updating FCM token:', error);
     res.status(500).json({ message: 'Failed to update FCM token' });
+  }
+};
+
+exports.getAdminDetails = async (req, res) => {
+  try {
+    const admin = await Admin.findOne({ role: 'admin' }).select('location');
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    res.json(admin);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getAllAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find({
+      role: 'admin',
+      isActive: true
+    }).select('name email phoneNumber location');
+    res.json({ admins });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }; 

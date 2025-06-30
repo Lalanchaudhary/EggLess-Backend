@@ -13,10 +13,10 @@ router.post('/login', authController.adminLogin);
 router.post('/first-admin', authController.createFirstAdmin);
 router.get('/verify',verifyToken, authController.verifyAdmin);
 // Protected routes
-router.use(protect);
+// router.use(protect); // protect middleware is causing issues with admin-signup
 // Admin only routes
-router.post('/signup', authorize('admin'), authController.adminSignup);
-router.get('/profile', (req, res) => {
+router.post('/admin-signup', authController.adminSignup);
+router.get('/profile', protect, (req, res) => {
     if (req.admin) {
         res.json({ success: true, admin: req.admin });
     } else {

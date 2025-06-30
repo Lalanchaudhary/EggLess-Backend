@@ -18,6 +18,15 @@ const adminSchema = new mongoose.Schema({
         required: [true, 'Password is required'],
         minlength: [6, 'Password must be at least 6 characters long']
     },
+    location: {
+        latitude: {
+          type: Number,
+          required: false  // set to true if you always expect coordinates
+        },
+        longitude: {
+          type: Number,
+          required: false
+        }},
     role: {
         type: String,
         enum: ['admin', 'delivery_boy'],

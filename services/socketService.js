@@ -17,6 +17,16 @@ class SocketService {
     return user?.fcmToken || null;
   }
 
+  static async getAdminFCMToken(adminId) {
+    const admin = await Admin.findById(adminId);
+    return admin?.fcmToken || null;
+  }
+
+  static async getDeliveryBoyFCMToken(deliveryBoyId) {
+    const deliveryBoy = await Admin.findById(deliveryBoyId);
+    return deliveryBoy?.fcmToken || null;
+  }
+
   static async sendFCMToMultiple(tokens, notification, data = {}) {
     for (const token of tokens) {
       try {
@@ -34,36 +44,51 @@ class SocketService {
 
   static async notifyAdminNewOrder(orderData) {
     try {
+      console.log('[notifyAdminNewOrder] Called with orderData:', orderData);
       const message = `New order #${orderData.orderId} has been placed`;
-  
-      if (this.isIoAvailable()) {
-        global.io.to('admin_room').emit('admin_notification', {
+      console.log('[notifyAdminNewOrder] assignedToAdmin:', orderData.assignedToAdmin);
+      if (this.isIoAvailable() && orderData.assignedToAdmin) {
+        console.log('[notifyAdminNewOrder] Emitting to admin room:', `admin_${orderData.assignedToAdmin}`);
+        global.io.to(`admin_${orderData.assignedToAdmin}`).emit('admin_notification', {
           type: 'NEW_ORDER',
           message,
           order: orderData,
           timestamp: new Date().toISOString()
         });
         console.log('📢 Socket.IO: Admin notification sent for order:', orderData.orderId);
+      } else {
+        console.log('[notifyAdminNewOrder] Skipped Socket.IO emit: isIoAvailable:', this.isIoAvailable(), 'assignedToAdmin:', orderData.assignedToAdmin);
       }
-  
-      const tokens = await this.getAllAdminFCMTokens();
-      if (tokens.length > 0) {
-        await this.sendFCMToMultiple(tokens, {
-          title: '🧁 New Order Received',
-          body: message
-        }, {
-          type: 'new_order',
-          orderId: orderData.orderId
-        });
+      if (orderData.assignedToAdmin) {
+        const token = await this.getAdminFCMToken(String(orderData.assignedToAdmin));
+
+        if (!token) {
+          console.warn('⚠️ No FCM token returned for admin ID:', orderData.assignedToAdmin);
+        }
+
+        console.log('[notifyAdminNewOrder] FCM token for admin:', token);
+        if (token) {
+          await this.sendFCMToMultiple([token], {
+            title: '🧁 New Order Received',
+            body: message
+          }, {
+            type: 'new_order',
+            orderId: orderData.orderId
+          });
+          console.log('[notifyAdminNewOrder] FCM notification sent to admin:', orderData.assignedToAdmin);
+        } else {
+          console.log('[notifyAdminNewOrder] No FCM token found for admin:', orderData.assignedToAdmin);
+        }
+      } else {
+        console.log('[notifyAdminNewOrder] No assignedToAdmin, skipping FCM notification');
       }
-  
       return true;
     } catch (error) {
       console.error('❌ Error sending admin new order notification:', error);
       return false;
     }
   }
-  
+
   // ✅ Keep this outside the above method
   static async sendFCMToMultiple(tokens, notification, data = {}) {
     for (const token of tokens) {
@@ -94,21 +119,20 @@ class SocketService {
             ...data
           }
         });
-  
+
         console.log('📬 FCM: Sent to token', token);
       } catch (err) {
         console.error('❌ Error sending FCM to token:', token, err.message);
       }
     }
   }
-  
+
 
   static async notifyAdminOrderStatusChange(orderData, oldStatus, newStatus) {
     try {
       const message = `Order #${orderData.orderId} status changed from ${oldStatus} to ${newStatus}`;
-
-      if (this.isIoAvailable()) {
-        global.io.to('admin_room').emit('admin_notification', {
+      if (this.isIoAvailable() && orderData.assignedToAdmin) {
+        global.io.to(`admin_${orderData.assignedToAdmin}`).emit('admin_notification', {
           type: 'ORDER_STATUS_CHANGE',
           message,
           order: {
@@ -121,18 +145,18 @@ class SocketService {
         });
         console.log('📢 Socket.IO: Admin status update sent:', orderData.orderId);
       }
-
-      const tokens = await this.getAllAdminFCMTokens();
-      if (tokens.length > 0) {
-        await this.sendFCMToMultiple(tokens, {
-          title: '📦 Order Status Updated',
-          body: message
-        }, {
-          type: 'order_status_change',
-          orderId: orderData.orderId
-        });
+      if (orderData.assignedToAdmin) {
+        const token = await this.getAdminFCMToken(orderData.assignedToAdmin);
+        if (token) {
+          await this.sendFCMToMultiple([token], {
+            title: '📦 Order Status Updated',
+            body: message
+          }, {
+            type: 'order_status_change',
+            orderId: orderData.orderId
+          });
+        }
       }
-
       return true;
     } catch (error) {
       console.error('❌ Error sending status change notification:', error);
@@ -143,9 +167,8 @@ class SocketService {
   static async notifyAdminPaymentCompleted(orderData) {
     try {
       const message = `Payment completed for order #${orderData.orderId}`;
-
-      if (this.isIoAvailable()) {
-        global.io.to('admin_room').emit('admin_notification', {
+      if (this.isIoAvailable() && orderData.assignedToAdmin) {
+        global.io.to(`admin_${orderData.assignedToAdmin}`).emit('admin_notification', {
           type: 'PAYMENT_COMPLETED',
           message,
           order: {
@@ -158,18 +181,18 @@ class SocketService {
         });
         console.log('📢 Socket.IO: Payment completion sent:', orderData.orderId);
       }
-
-      const tokens = await this.getAllAdminFCMTokens();
-      if (tokens.length > 0) {
-        await this.sendFCMToMultiple(tokens, {
-          title: '💰 Payment Completed',
-          body: message
-        }, {
-          type: 'payment_completed',
-          orderId: orderData.orderId
-        });
+      if (orderData.assignedToAdmin) {
+        const token = await this.getAdminFCMToken(orderData.assignedToAdmin);
+        if (token) {
+          await this.sendFCMToMultiple([token], {
+            title: '💰 Payment Completed',
+            body: message
+          }, {
+            type: 'payment_completed',
+            orderId: orderData.orderId
+          });
+        }
       }
-
       return true;
     } catch (error) {
       console.error('❌ Error sending payment notification:', error);
@@ -214,6 +237,42 @@ class SocketService {
       return true;
     } catch (error) {
       console.error('❌ Error notifying user order status:', error);
+      return false;
+    }
+  }
+
+  static async notifyDeliveryBoyOrderAssigned(orderData) {
+    console.log('====================================');
+    console.log("Hello delievery boy");
+    console.log('====================================');
+    try {
+      const deliveryBoyId = orderData.assignedToDelievery_Boy;
+      if (!deliveryBoyId) return false;
+      const message = `You have been assigned order #${orderData.orderId}`;
+      // Socket.IO notification
+      if (this.isIoAvailable()) {
+        global.io.to(`delivery_${deliveryBoyId}`).emit('delivery_notification', {
+          type: 'ORDER_ASSIGNED',
+          message,
+          order: orderData,
+          timestamp: new Date().toISOString()
+        });
+        console.log('📢 Socket.IO: Delivery boy notified for order assignment:', orderData.orderId);
+      }
+      // FCM notification
+      const token = await this.getDeliveryBoyFCMToken(deliveryBoyId);
+      if (token) {
+        await this.sendFCMToMultiple([token], {
+          title: '🚚 Order Assigned',
+          body: message
+        }, {
+          type: 'order_assigned',
+          orderId: orderData.orderId
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ Error notifying delivery boy order assignment:', error);
       return false;
     }
   }

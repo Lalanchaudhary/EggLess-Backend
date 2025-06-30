@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const SocketService = require('../services/socketService');
+const { findNearestAdmin } = require('../lib/utils');
 require("dotenv").config();
 console.log('RAZORPAY_KEY_ID:', process.env.RAZORPAY_KEY_ID);
 console.log('RAZORPAY_KEY_SECRET:', process.env.RAZORPAY_KEY_SECRET);
@@ -20,7 +21,7 @@ const paymentOrder = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const {items, totalAmount, currency = 'INR', shippingAddress, userId } = req.body;
+    const {items, totalAmount, currency = 'INR', shippingAddress,orderInstruction, userId } = req.body;
 
     const totalAmountInt = parseInt(totalAmount);
     // Validate amount
@@ -37,6 +38,16 @@ const paymentOrder = async (req, res) => {
 
     const order = await razorpay.orders.create(options);
 
+    // Find nearest admin based on user location
+    let assignedAdmin = null;
+    if (shippingAddress && shippingAddress.location) {
+      const nearestAdminResult = await findNearestAdmin(
+        shippingAddress.location.latitude,
+        shippingAddress.location.longitude
+      );
+      assignedAdmin = nearestAdminResult?.admin?._id || null;
+    }
+
     // Create a pending order in our database
     const newOrder = new Order({
       user: req.user._id,
@@ -46,7 +57,9 @@ const paymentOrder = async (req, res) => {
       paymentStatus: 'Pending',
       razorpayOrderId: order.id,
       shippingAddress,
-      items
+      orderInstructions:orderInstruction,
+      items,
+      assignedToAdmin: assignedAdmin
     });
     
 
@@ -65,7 +78,8 @@ const paymentOrder = async (req, res) => {
       status: newOrder.status,
       customerName: req.user.name || req.user.email,
       items: newOrder.items,
-      createdAt: newOrder.createdAt
+      createdAt: newOrder.createdAt,
+      assignedToAdmin: assignedAdmin
     };
     
 
@@ -135,7 +149,8 @@ const VerifyOrder = async (req, res) => {
         totalAmount: order.totalAmount,
         paymentMethod: order.paymentMethod,
         paymentStatus: order.paymentStatus,
-        customerName: req.user.name || req.user.email
+        customerName: req.user.name || req.user.email,
+        assignedToAdmin: order.assignedToAdmin
       };
       SocketService.notifyAdminNewOrder(orderData);
       // SocketService.notifyAdminPaymentCompleted(orderData);
@@ -156,7 +171,7 @@ const VerifyOrder = async (req, res) => {
 // Handle COD payment
 const handleCODPayment = async (req, res) => {
   console.log('====================================');
-  console.log("Cod pe");
+  console.log("Cod pe",req.body);
   console.log('====================================');
   try {
     // Check if user is authenticated
@@ -164,7 +179,7 @@ const handleCODPayment = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { items, shippingAddress, totalAmount } = req.body;
+    const { items, shippingAddress, totalAmount ,orderInstruction } = req.body;
 
     // Validate required fields
     if (!items || !shippingAddress || !totalAmount) {
@@ -177,6 +192,16 @@ const handleCODPayment = async (req, res) => {
       return res.status(400).json({ message: 'Invalid amount' });
     }
 
+    // Find nearest admin based on user location
+    let assignedAdmin = null;
+    if (shippingAddress && shippingAddress.location) {
+      const nearestAdminResult = await findNearestAdmin(
+        shippingAddress.location.latitude,
+        shippingAddress.location.longitude
+      );
+      assignedAdmin = nearestAdminResult?.admin?._id || null;
+    }
+
     // Create new order with COD payment method
     const order = new Order({
       user: req.user._id,
@@ -185,7 +210,9 @@ const handleCODPayment = async (req, res) => {
       shippingAddress,
       paymentMethod: 'COD',
       status: 'Pending',
-      paymentStatus: 'Pending'
+      paymentStatus: 'Pending',
+      assignedToAdmin: assignedAdmin,
+      orderInstructions:orderInstruction,
     });
 
     await order.save();
@@ -203,7 +230,8 @@ const handleCODPayment = async (req, res) => {
       status: order.status,
       customerName: req.user.name || req.user.email,
       items: order.items,
-      createdAt: order.createdAt
+      createdAt: order.createdAt,
+      assignedToAdmin: assignedAdmin
     };
     
     SocketService.notifyAdminNewOrder(orderData);
@@ -251,7 +279,7 @@ const confirmCODPayment = async (req, res) => {
 const payWithWallet = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { items, totalAmount, shippingAddress } = req.body;
+    const { items, totalAmount, shippingAddress ,orderInstruction } = req.body;
 
     if (!items || !totalAmount || !shippingAddress) {
       return res.status(400).json({ message: 'Incomplete order data' });
@@ -272,6 +300,16 @@ const payWithWallet = async (req, res) => {
       return res.status(400).json({ message: 'Insufficient wallet balance' });
     }
 
+    // Find nearest admin based on user location
+    let assignedAdmin = null;
+    if (shippingAddress && shippingAddress.location) {
+      const nearestAdminResult = await findNearestAdmin(
+        shippingAddress.location.latitude,
+        shippingAddress.location.longitude
+      );
+      assignedAdmin = nearestAdminResult?.admin?._id || null;
+    }
+
     // Deduct amount from wallet (uses method you defined earlier)
     await user.updateWalletBalance(
       totalAmountInt,
@@ -287,7 +325,9 @@ const payWithWallet = async (req, res) => {
       shippingAddress,
       paymentMethod: 'Wallet',
       paymentStatus: 'Completed',
-      status: 'Pending'
+      status: 'Pending',
+      assignedToAdmin: assignedAdmin,
+      orderInstructions:orderInstruction
     });
 
     const savedOrder = await newOrder.save();
@@ -300,7 +340,8 @@ const payWithWallet = async (req, res) => {
       status: savedOrder.status,
       customerName: req.user.name || req.user.email,
       items: savedOrder.items,
-      createdAt: savedOrder.createdAt
+      createdAt: savedOrder.createdAt,
+      assignedToAdmin: assignedAdmin
     };
     
     SocketService.notifyAdminNewOrder(orderData);

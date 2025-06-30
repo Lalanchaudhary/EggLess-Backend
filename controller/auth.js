@@ -1,7 +1,7 @@
-const User = require("../models/User") 
+const User = require("../models/User")
 const Admin = require("../models/admin")
 const bcrypt = require("bcrypt")
-const jwt = require("jsonwebtoken") 
+const jwt = require("jsonwebtoken")
 
 require('dotenv').config()
 
@@ -55,7 +55,7 @@ exports.adminLogin = async (req, res) => {
         // Verify password
         const isPasswordValid = await admin.comparePassword(password);
         console.log("Password validation:", isPasswordValid ? "Success" : "Failed");
-        
+
         if (!isPasswordValid) {
             return res.status(403).json({
                 success: false,
@@ -80,11 +80,11 @@ exports.adminLogin = async (req, res) => {
         admin.token = token;
 
         // Update last login
-        await Admin.findByIdAndUpdate(admin._id, { 
+        await Admin.findByIdAndUpdate(admin._id, {
             lastLogin: new Date(),
             $inc: { loginCount: 1 } // Optional: track login count
         });
-        
+
         // Set cookie options
         const cookieOptions = {
             expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
@@ -116,32 +116,25 @@ exports.adminLogin = async (req, res) => {
 
 exports.verifyAdmin = async (req, res) => {
     try {
-      const admin = await Admin.findById(req.user.id);
-      if (!admin) {
-        return res.status(404).json({ message: "Admin not found" });
-      }
-      res.json({ success: true, admin: admin.getProfile() });
+        const admin = await Admin.findById(req.user.id);
+        if (!admin) {
+            return res.status(404).json({ message: "Admin not found" });
+        }
+        res.json({ success: true, admin: admin.getProfile() });
     } catch (err) {
-      res.status(500).json({ message: "Server error" });
+        res.status(500).json({ message: "Server error" });
     }
 };
 
 exports.adminSignup = async (req, res) => {
     try {
-        const { name, email, password, role, phoneNumber, deliveryDetails } = req.body;
+        const { name, email, password,location, role, phoneNumber, deliveryDetails} = req.body;
 
-        // Check if requesting user is admin
-        if (!req.admin || req.admin.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: "Only admin can create new accounts"
-            });
-        }
 
-        const existingAdmin = await Admin.findOne({ 
-            $or: [{ email }, { phoneNumber }] 
+        const existingAdmin = await Admin.findOne({
+            $or: [{ email }, { phoneNumber }]
         });
-        
+
         if (existingAdmin) {
             return res.status(400).json({
                 success: false,
@@ -161,6 +154,7 @@ exports.adminSignup = async (req, res) => {
             name,
             email,
             password,
+            location,
             role,
             phoneNumber,
             permissions,
@@ -192,7 +186,7 @@ exports.createFirstAdmin = async (req, res) => {
             });
         }
 
-        const { name, email, password, phoneNumber } = req.body;
+        const { name, email, password,location, phoneNumber } = req.body;
 
         // Validate required fields
         if (!name || !email || !password || !phoneNumber) {
@@ -203,10 +197,10 @@ exports.createFirstAdmin = async (req, res) => {
         }
 
         // Check if email or phone already exists
-        const existingAdmin = await Admin.findOne({ 
-            $or: [{ email }, { phoneNumber }] 
+        const existingAdmin = await Admin.findOne({
+            $or: [{ email }, { phoneNumber }]
         });
-        
+
         if (existingAdmin) {
             return res.status(400).json({
                 success: false,
@@ -219,6 +213,7 @@ exports.createFirstAdmin = async (req, res) => {
             name,
             email,
             password,
+            location,
             phoneNumber,
             role: 'admin',
             permissions: ['manage_users', 'manage_products', 'manage_orders', 'view_analytics', 'manage_delivery']

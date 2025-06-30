@@ -202,6 +202,40 @@ exports.addAddress = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+//....syncLocationAddress.....
+
+
+exports.syncLocationAddress = async (req, res) => {
+  try {
+    const { address } = req.body;
+    if (!address) {
+      return res.status(400).json({ error: 'Address data is required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    const existingAddressIndex = user.addresses.findIndex(
+      addr => addr.type === address.type
+    );
+
+    if (existingAddressIndex > -1) {
+      // Update existing address
+      user.addresses[existingAddressIndex] = {
+        ...user.addresses[existingAddressIndex],
+        ...address,
+        _id: user.addresses[existingAddressIndex]._id
+      };
+    } else {
+      // Add new address
+      user.addresses.push(address);
+    }
+
+    await user.save();
+    res.status(200).json(user.addresses);
+  } catch (error) {
+    console.error('Error syncing location address:', error);
+    res.status(500).json({ error: 'Failed to sync address' });
+  }
+};
 
 // Update address
 exports.updateAddress = async (req, res) => {

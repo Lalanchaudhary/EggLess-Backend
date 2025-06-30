@@ -38,6 +38,16 @@ const orderSchema = new mongoose.Schema({
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     default: 'Pending'
   },
+  assignedToDelievery_Boy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null
+  },
+    assignedToAdmin: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    default: null
+  },
   paymentMethod: {
     type: String,
     enum: ['COD', 'Razorpay', 'Wallet'],
@@ -56,7 +66,6 @@ const orderSchema = new mongoose.Schema({
     },
     street: {
       type: String,
-      required: true
     },
     city: {
       type: String,

@@ -20,13 +20,11 @@ try {
       credential: admin.credential.cert(serviceAccount),
     });
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin SDK initialized successfully');
   } else {
-    console.log('⚠️ Firebase credentials not configured. Notifications will be disabled.');
+    // Firebase credentials not configured
   }
 } catch (error) {
-  console.log('⚠️ Firebase configuration not found. Notifications will be disabled.');
-  console.log('To enable notifications, configure Firebase as described in FIREBASE_SETUP.md');
+  // Firebase configuration not found
 }
 
 const app = express();
@@ -62,6 +60,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const cakeRoutes = require("./routes/cakeRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const authRoutes = require("./routes/authRoutes");
+const deliveryRoutes = require('./routes/deliveryRoutes');
 
 // Routes
 app.use("/users", userRoutes);
@@ -69,6 +68,7 @@ app.use("/payment", paymentRoutes);
 app.use("/cake", cakeRoutes);
 app.use("/admin", adminRoutes);
 app.use("/auth", authRoutes);
+app.use('/delivery', deliveryRoutes);
 
 // Base route
 app.get("/", (req, res) => {
@@ -81,11 +81,8 @@ const adminUsers = new Set();
 
 // Socket.IO logic
 io.on("connection", (socket) => {
-  console.log("🟢 New client connected:", socket.id);
-
   // Handle admin connection
   socket.on("admin_connected", (data) => {
-    console.log("👨‍💼 Admin connected:", socket.id, data);
     socket.join("admin_room");
     adminUsers.add(socket.id);
     
@@ -102,7 +99,6 @@ io.on("connection", (socket) => {
 
   // Handle user connection
   socket.on("user_connect", (data) => {
-    console.log("👤 User connected:", socket.id, data);
     socket.join("user_room");
     
     if (data.userId && data.fcmToken) {
@@ -118,22 +114,26 @@ io.on("connection", (socket) => {
 
   // Handle joining admin room
   socket.on("join_admin_room", (data) => {
-    console.log("👨‍💼 Admin joining room:", socket.id, data);
     socket.join("admin_room");
     adminUsers.add(socket.id);
   });
 
+  // Handle joining specific admin room (NEW)
+  socket.on("join_specific_admin_room", (data) => {
+    if (data.adminId) {
+      socket.join(`admin_${data.adminId}`);
+      console.log(`[Socket] Admin ${data.adminId} joined specific room: admin_${data.adminId}`);
+    }
+  });
+
   // Handle leaving admin room
   socket.on("leave_admin_room", (data) => {
-    console.log("👨‍💼 Admin leaving room:", socket.id, data);
     socket.leave("admin_room");
     adminUsers.delete(socket.id);
   });
 
   // Handle new order notification
   socket.on("new_order", (orderData) => {
-    console.log("🆕 New order received:", orderData);
-    
     // Emit to admin room
     io.to("admin_room").emit("new_order", orderData);
     
@@ -163,8 +163,6 @@ io.on("connection", (socket) => {
 
   // Handle order status update
   socket.on("update_order_status", (data) => {
-    console.log("📊 Order status update:", data);
-    
     // Emit to admin room
     io.to("admin_room").emit("order_status_updated", data);
     
@@ -185,8 +183,6 @@ io.on("connection", (socket) => {
 
   // Handle order assignment
   socket.on("assign_order", (data) => {
-    console.log("👤 Order assigned:", data);
-    
     // Emit to admin room
     io.to("admin_room").emit("order_assigned", data);
     
@@ -207,8 +203,6 @@ io.on("connection", (socket) => {
 
   // Handle delivery boy status
   socket.on("delivery_boy_status", (data) => {
-    console.log("🚚 Delivery boy status:", data);
-    
     // Emit to admin room
     io.to("admin_room").emit("delivery_boy_status", data);
     
@@ -237,8 +231,6 @@ io.on("connection", (socket) => {
 
   // Handle sending notification to specific user
   socket.on("send_notification", (data) => {
-    console.log("📨 Sending notification to user:", data);
-    
     if (firebaseInitialized && data.userId && data.notification) {
       sendFirebaseNotification(data.userId, data.notification);
     }
@@ -246,18 +238,16 @@ io.on("connection", (socket) => {
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
+    // Remove from connected users
+    const disconnectedUserId = Array.from(connectedUsers.entries())
+      .find(([userId, userData]) => userData.socketId === socket.id)?.[0];
+    
+    if (disconnectedUserId) {
+      connectedUsers.delete(disconnectedUserId);
+    }
     
     // Remove from admin users
     adminUsers.delete(socket.id);
-    
-    // Remove from connected users
-    for (const [userId, userData] of connectedUsers.entries()) {
-      if (userData.socketId === socket.id) {
-        connectedUsers.delete(userId);
-        break;
-      }
-    }
   });
 });
 
