@@ -30,15 +30,23 @@ try {
 const app = express();
 const server = http.createServer(app); // Create an HTTP server instance
 
-// CORS configuration for cookies and credentials
+const allowedOrigins = process.env.NODE_ENV === "production"
+  ? ["https://eggless.vercel.app"]
+  : ["http://localhost:3000", "http://127.0.0.1:3000"];
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || 'http://localhost:3000'
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed from this origin: " + origin));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 };
+
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
