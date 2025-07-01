@@ -315,7 +315,7 @@ global.sendFirebaseNotification = sendFirebaseNotification;
 global.firebaseInitialized = firebaseInitialized;
 
 // Start server
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 9000;
 server.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
   console.log(`📱 Socket.IO server ready for connections`);
