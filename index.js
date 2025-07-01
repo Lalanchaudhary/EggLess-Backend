@@ -316,8 +316,8 @@ global.firebaseInitialized = firebaseInitialized;
 
 // Start server
 const port = process.env.PORT || 9000;
-server.listen(port, () => {
-  console.log(`🚀 Server is running on port ${port}`);
+server.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Server is running on http://0.0.0.0:${port}`);
   console.log(`📱 Socket.IO server ready for connections`);
   if (firebaseInitialized) {
     console.log(`🔥 Firebase notifications enabled`);
@@ -325,6 +325,7 @@ server.listen(port, () => {
     console.log(`⚠️ Firebase notifications disabled - configure Firebase to enable`);
   }
 });
+
 
 // Connect to MongoDB
 connectDB();
