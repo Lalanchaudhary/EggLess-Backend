@@ -11,21 +11,25 @@ let admin = null;
 let firebaseInitialized = false;
 
 try {
-  const serviceAccount = require('./config/firebase-service-account.json');
-  
-  // Check if service account has actual values (not placeholder)
-  if (serviceAccount.project_id && serviceAccount.project_id !== 'your-firebase-project-id') {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'); // important!
+
+  if (projectId && clientEmail && privateKey) {
     admin = require('firebase-admin');
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
     });
     firebaseInitialized = true;
-  } else {
-    // Firebase credentials not configured
   }
 } catch (error) {
-  // Firebase configuration not found
+  console.error("❌ Firebase Admin initialization failed:", error.message);
 }
+
 
 const app = express();
 const server = http.createServer(app); // Create an HTTP server instance
