@@ -30,7 +30,7 @@ try {
 const app = express();
 const server = http.createServer(app); // Create an HTTP server instance
 
-const allowedOrigins = process.env.NODE_ENV !== "production"
+const allowedOrigins = process.env.NODE_ENV === "production"
   ? ["https://www.egglesscakes.in"]
   : ["http://localhost:3000", "https://www.egglesscakes.in"];
 

@@ -7,9 +7,6 @@ require('dotenv').config()
 
 // Admin Authentication
 exports.adminLogin = async (req, res) => {
-    console.log('====================================');
-    console.log("Admin login attempt:", { email: req.body.email, role: req.body.role });
-    console.log('====================================');
     try {
         const { email, password, role } = req.body;
 

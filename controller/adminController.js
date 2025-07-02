@@ -645,9 +645,6 @@ exports.verifyCODPayment = async (req, res) => {
 
 // FCM Token Management
 exports.updateFCMToken = async (req, res) => {
-  console.log('====================================');
-  console.log("fghgf");
-  console.log('====================================');
 
   try {
     console.log('updateFCMToken called with body:', req.body);
