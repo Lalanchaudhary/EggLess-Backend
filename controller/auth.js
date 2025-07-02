@@ -86,8 +86,8 @@ exports.adminLogin = async (req, res) => {
         const cookieOptions = {
             expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
             httpOnly: true,
-            secure: true,
-            sameSite:'none'
+            secure: false,
+            sameSite:'lax'
         };
 
         console.log("Cookie options:", cookieOptions);
