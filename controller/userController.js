@@ -68,10 +68,10 @@ exports.register = async (req, res) => {
       phoneNumber,
       isPhoneVerified: true, // Since we're using Firebase phone auth
       createdAt: new Date(),
-      // wallet: {
-      //   balance: 0,
-      //   transactions: []
-      // },
+      wallet: {
+        balance: 150,
+        transactions: []
+      },
       // settings: {
       //   notifications: {
       //     email: true,

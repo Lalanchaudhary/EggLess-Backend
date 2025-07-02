@@ -11,32 +11,28 @@ let admin = null;
 let firebaseInitialized = false;
 
 try {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'); // important!
-
-  if (projectId && clientEmail && privateKey) {
+  const serviceAccount = require('./config/firebase-service-account.json');
+  
+  // Check if service account has actual values (not placeholder)
+  if (serviceAccount.project_id && serviceAccount.project_id !== 'your-firebase-project-id') {
     admin = require('firebase-admin');
     admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
+      credential: admin.credential.cert(serviceAccount),
     });
     firebaseInitialized = true;
+  } else {
+    // Firebase credentials not configured
   }
 } catch (error) {
-  console.error("❌ Firebase Admin initialization failed:", error.message);
+  // Firebase configuration not found
 }
-
 
 const app = express();
 const server = http.createServer(app); // Create an HTTP server instance
 
-const allowedOrigins = process.env.NODE_ENV === "production"
-  ? ["https://eggless.vercel.app"]
-  : ["http://localhost:3000", "http://127.0.0.1:3000"];
+const allowedOrigins = process.env.NODE_ENV !== "production"
+  ? ["https://www.egglesscakes.in"]
+  : ["http://localhost:3000", "https://www.egglesscakes.in"];
 
 const corsOptions = {
   origin: function (origin, callback) {
