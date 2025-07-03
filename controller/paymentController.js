@@ -7,8 +7,8 @@ const { findNearestAdmin } = require('../lib/utils');
 require("dotenv").config();
 // Initialize Razorpay
 const razorpay = new Razorpay({
-  key_id:'rzp_test_1FGhUyAJx6vnYE',
-  key_secret:'c62L38n5PxbRhgbLkEJjmY9U'
+  key_id: 'rzp_test_1FGhUyAJx6vnYE',
+  key_secret: 'c62L38n5PxbRhgbLkEJjmY9U'
 });
 
 // Create Razorpay order
@@ -19,14 +19,14 @@ const paymentOrder = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const {items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress,orderInstruction} = req.body;
+    const { items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress, orderInstruction } = req.body;
 
     const totalAmountInt = parseInt(totalAmount);
     // Validate amount
     if (!totalAmountInt || totalAmountInt <= 0) {
       return res.status(400).json({ message: 'Invalid amount' });
     }
-    
+
 
     const options = {
       amount: totalAmountInt * 100, // Razorpay expects amount in paise
@@ -55,13 +55,13 @@ const paymentOrder = async (req, res) => {
       paymentStatus: 'Pending',
       razorpayOrderId: order.id,
       shippingAddress,
-      orderInstructions:orderInstruction,
+      orderInstructions: orderInstruction,
       items,
       assignedToAdmin: assignedAdmin,
-      tax:tax,
-      shippingcharge:shippingcharge
+      tax: tax,
+      shippingcharge: shippingcharge
     });
-    
+
 
     await newOrder.save();
 
@@ -81,7 +81,7 @@ const paymentOrder = async (req, res) => {
       createdAt: newOrder.createdAt,
       assignedToAdmin: assignedAdmin
     };
-    
+
 
     res.json({
       ...order,
@@ -171,7 +171,7 @@ const VerifyOrder = async (req, res) => {
 // Handle COD payment
 const handleCODPayment = async (req, res) => {
   console.log('====================================');
-  console.log("Cod pe",req.body);
+  console.log("Cod pe", req.body);
   console.log('====================================');
   try {
     // Check if user is authenticated
@@ -179,7 +179,7 @@ const handleCODPayment = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    {items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress,orderInstruction}
+    const { items,tax, shippingcharge, shippingAddress, totalAmount, orderInstruction } = req.body;
 
     // Validate required fields
     if (!items || !shippingAddress || !totalAmount) {
@@ -212,9 +212,9 @@ const handleCODPayment = async (req, res) => {
       status: 'Pending',
       paymentStatus: 'Pending',
       assignedToAdmin: assignedAdmin,
-      orderInstructions:orderInstruction,
-      tax:tax,
-      shippingcharge:shippingcharge
+      orderInstructions: orderInstruction,
+      tax: tax,
+      shippingcharge: shippingcharge
     });
 
     await order.save();
@@ -235,7 +235,7 @@ const handleCODPayment = async (req, res) => {
       createdAt: order.createdAt,
       assignedToAdmin: assignedAdmin
     };
-    
+
     SocketService.notifyAdminNewOrder(orderData);
 
     res.status(201).json({
@@ -280,7 +280,8 @@ const confirmCODPayment = async (req, res) => {
 
 const payWithWallet = async (req, res) => {
   try {
-    {items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress,orderInstruction}    const { items, totalAmount, shippingAddress ,orderInstruction } = req.body;
+    const userId = req.user._id;
+    const { items,tax, shippingcharge, totalAmount, shippingAddress, orderInstruction } = req.body;
 
     if (!items || !totalAmount || !shippingAddress) {
       return res.status(400).json({ message: 'Incomplete order data' });
@@ -328,9 +329,9 @@ const payWithWallet = async (req, res) => {
       paymentStatus: 'Completed',
       status: 'Pending',
       assignedToAdmin: assignedAdmin,
-      orderInstructions:orderInstruction,
-      tax:tax,
-      shippingcharge:shippingcharge
+      orderInstructions: orderInstruction,
+      tax: tax,
+      shippingcharge: shippingcharge
     });
 
     const savedOrder = await newOrder.save();
@@ -346,7 +347,7 @@ const payWithWallet = async (req, res) => {
       createdAt: savedOrder.createdAt,
       assignedToAdmin: assignedAdmin
     };
-    
+
     SocketService.notifyAdminNewOrder(orderData);
 
     res.status(201).json({
@@ -424,7 +425,7 @@ const getWalletTransactions = async (req, res) => {
 
     // Find the user and select only the wallet transactions
     const user = await User.findById(userId).select('wallet.transactions wallet.balance');
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -550,5 +551,5 @@ module.exports = {
   refundToWallet,
   getWalletTransactions,
   addMoneyToWallet,
-  verifyWalletTopUp  
+  verifyWalletTopUp
 };
