@@ -26,18 +26,11 @@ router.get('/profile', protect, (req, res) => {
 
 // Logout route
 router.post('/logout', (req, res) => {
-    const cookieOptions = {
-        expires: new Date(Date.now() + 10 * 1000),
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
-    };
-    
-    res.cookie('token', 'none', cookieOptions);
-    res.status(200).json({
-        success: true,
-        message: 'Logged out successfully'
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
     });
-});
+  });
+  
 
 module.exports = router; 

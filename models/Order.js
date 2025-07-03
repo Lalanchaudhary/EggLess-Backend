@@ -28,6 +28,14 @@ const orderSchema = new mongoose.Schema({
       min: 0
     }
   }],
+  tax:{
+    type:Number,
+    default:0
+  },
+  shippingcharge:{
+    type:Number,
+    default:0
+  },
   totalAmount: {
     type: Number,
     required: true,
