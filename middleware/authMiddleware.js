@@ -20,7 +20,6 @@ exports.protect = async (req, res, next) => {
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            
             // Check if it's an admin or user
             if (decoded.role === 'admin' || decoded.role === 'delivery_boy') {
                 req.admin = await Admin.findById(decoded.id);

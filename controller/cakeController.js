@@ -82,7 +82,7 @@ const deleteCake = async (req, res) => {
 // Add review to cake
 const addReview = async (req, res) => {
     console.log('====================================');
-    console.log("review" , req.params.id);
+    console.log("review" , req.body);
     console.log('====================================');
   try {
     const cake = await Cake.findById(req.params.id);
