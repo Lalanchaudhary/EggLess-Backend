@@ -53,7 +53,7 @@ app.use(express.json());
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? process.env.FRONTEND_URL || 'https://eggless.vercel.app'
+      ? ['https://www.egglesscakes.in', 'https://eggless.vercel.app']
       : ['http://localhost:3000', 'https://eggless.vercel.app'],
     methods: ["GET", "POST"],
     credentials: true
