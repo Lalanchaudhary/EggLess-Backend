@@ -492,10 +492,6 @@ exports.getDeliveryBoyOrderById = async (req, res) => {
   try {
     const deliveryBoyId = req.admin.id;
     const { orderId } = req.params;
-    console.log('====================================');
-    console.log("deliveryBoyId :", deliveryBoyId);
-    console.log("orderId :", orderId);
-    console.log('====================================');
     const order = await Order.findOne({ _id: orderId, assignedToDelievery_Boy: deliveryBoyId })
       .populate('user', 'name email phoneNumber')
       .populate('items.product', 'name price image')
