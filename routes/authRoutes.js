@@ -11,7 +11,7 @@ router.get('/test', (req, res) => {
 // Public routes
 router.post('/login', authController.adminLogin);
 router.post('/first-admin', authController.createFirstAdmin);
-router.get('/verify',authController.verifyAdmin);
+router.get('/verify',verifyToken, authController.verifyAdmin);
 // Protected routes
 // router.use(protect); // protect middleware is causing issues with admin-signup
 // Admin only routes

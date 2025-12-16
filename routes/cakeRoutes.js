@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { 
   getAllCakes, 
+  getAllCakes2,
   getCakeById, 
+  getCakeBySlug,
   createCake, 
   createMultipleCakes,
   updateCake, 
@@ -13,7 +15,9 @@ const { protect } = require('../middleware/authMiddleware');
 const auth =require("../middleware/auth")
 // Public routes
 router.get('/', getAllCakes);
+router.get('/allcakes',getAllCakes2);
 router.get('/:id', getCakeById);
+router.get('/slug/:slug', getCakeBySlug);
 
 // Protected routes (require authentication)
 router.post('/:id/reviews', auth, addReview);

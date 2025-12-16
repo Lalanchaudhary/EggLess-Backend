@@ -81,10 +81,10 @@ exports.adminLogin = async (req, res) => {
             lastLogin: new Date(),
             $inc: { loginCount: 1 } // Optional: track login count
         });
-
+ 
         // Set cookie options
         const cookieOptions = {
-            expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+            expires: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: true,
             sameSite:'none'
@@ -112,6 +112,7 @@ exports.adminLogin = async (req, res) => {
 };
 
 exports.verifyAdmin = async (req, res) => {
+    console.log("Verifying admin with ID:", req.user);
     try {
         const admin = await Admin.findById(req.user.id);
         if (!admin) {

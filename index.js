@@ -30,7 +30,7 @@ try {
 const app = express();
 const server = http.createServer(app); // Create an HTTP server instance
 
-const allowedOrigins = ["http://localhost:3000", "https://www.egglesscakes.in, https://eggless.vercel.app"];
+const allowedOrigins = ["http://localhost:3000", "https://www.egglesscakes.in", "https://eggless.vercel.app","http://localhost:45678"];
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -54,7 +54,7 @@ const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
       ? ['https://www.egglesscakes.in', 'https://eggless.vercel.app']
-      : ['http://localhost:3000', 'https://eggless.vercel.app'],
+      : ['http://localhost:3000', 'https://eggless.vercel.app', "http://localhost:45678"],
     methods: ["GET", "POST"],
     credentials: true
   }

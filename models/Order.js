@@ -4,18 +4,17 @@ const orderSchema = new mongoose.Schema({
   orderId: {
     type: String,
     unique: true,
-    index: true
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
   items: [{
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Cake',
-      required: true
+      required: true,
     },
     quantity: {
       type: Number,
@@ -44,7 +43,7 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Pending'
+    default: 'Pending',
   },
   assignedToDelievery_Boy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -125,7 +124,7 @@ const orderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    immutable: true
+    immutable: true,
   },
   updatedAt: {
     type: Date,
@@ -133,21 +132,52 @@ const orderSchema = new mongoose.Schema({
   }
 });
 
+// Unique order lookup
+orderSchema.index({ orderId: 1 }, { unique: true });
+
+// User order history
+orderSchema.index({ user: 1, createdAt: -1 });
+
+// Admin order management
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ assignedToAdmin: 1 });
+
+// Delivery partner
+orderSchema.index({ assignedToDelievery_Boy: 1, status: 1 });
+
+// Date range reports
+orderSchema.index({ createdAt: -1 });
+
+
 // Pre-save hook to generate orderId and update updatedAt timestamp
-orderSchema.pre('save', function(next) {
-  // Generate unique orderId if new
-  if (this.isNew) {
+orderSchema.pre('save', async function(next) {
+  if (!this.isNew) {
+    this.updatedAt = Date.now();
+    return next();
+  }
+
+  let isUnique = false;
+
+  while (!isUnique) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    this.orderId = `ORD${year}${month}${day}${random}`;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.floor(100000 + Math.random() * 900000);
+
+    const orderId = `ORD${year}${month}${day}${random}`;
+    const exists = await mongoose.models.Order.findOne({ orderId });
+
+    if (!exists) {
+      this.orderId = orderId;
+      isUnique = true;
+    }
   }
-  // Always update updatedAt timestamp
+
   this.updatedAt = Date.now();
   next();
 });
+
 
 // Method to calculate total amount from items
 orderSchema.methods.calculateTotal = function() {

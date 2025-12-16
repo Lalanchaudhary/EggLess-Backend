@@ -10,6 +10,7 @@ const sizeSchema = new mongoose.Schema({
 // Main Cake schema
 const cakeSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  slug: { type: String, unique: true },
   category: { type: String, required: true },
   flavor: { type: String },
   price: { type: Number, required: true },
@@ -41,5 +42,7 @@ const cakeSchema = new mongoose.Schema({
     }
   ]
 }, { timestamps: true });
+
+cakeSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Cake', cakeSchema);

@@ -70,17 +70,6 @@ const paymentOrder = async (req, res) => {
       $push: { orders: newOrder._id }
     });
 
-    // Send notification to admin about new order
-    const orderData = {
-      orderId: newOrder.orderId,
-      totalAmount: newOrder.totalAmount,
-      paymentMethod: newOrder.paymentMethod,
-      status: newOrder.status,
-      customerName: req.user.name || req.user.email,
-      items: newOrder.items,
-      createdAt: newOrder.createdAt,
-      assignedToAdmin: assignedAdmin
-    };
 
 
     res.json({
@@ -170,9 +159,6 @@ const VerifyOrder = async (req, res) => {
 
 // Handle COD payment
 const handleCODPayment = async (req, res) => {
-  console.log('====================================');
-  console.log("Cod pe", req.body);
-  console.log('====================================');
   try {
     // Check if user is authenticated
     if (!req.user) {
