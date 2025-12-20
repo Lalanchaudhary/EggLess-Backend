@@ -70,15 +70,44 @@ const getCakeBySlug = async (req, res) => {
 // Create new cake
 const createCake = async (req, res) => {
   try {
-    const cake = new Cake(req.body);
-    const slug = generateSlug(cake.name);
-    cake.slug=slug;
+    const { name } = req.body;
+console.log("REQ BODY:", req.body);
+    // Basic validation
+    if (!name) {
+      return res.status(400).json({ message: "Cake name is required" });
+    }
+
+    // Generate slug
+    let slug = generateSlug(name);
+
+    // Check if slug already exists
+    const existingCake = await Cake.findOne({ slug });
+    if (existingCake) {
+      slug = `${slug}-${Date.now()}`; // make slug unique
+    }
+
+    const cake = new Cake({
+      ...req.body,
+      slug,
+    });
+
     const savedCake = await cake.save();
-    res.status(201).json(savedCake);
+
+    res.status(201).json({
+      success: true,
+      message: "Cake created successfully",
+      data: savedCake,
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Create Cake Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
+
 
 const createMultipleCakes = async (req, res) => {
   try {
@@ -159,6 +188,31 @@ const addReview = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+const getCakeByFlavor=async (req,res)=>{
+  const {flavor} =req.body;
+  const limit = parseInt(req.body.query.limit) || 10;
+  const cursor = query.cursor;
+  const query= cursor?{ createdAt: { $lt: new Date(cursor) } } : {};
+  try{
+  const cakes= await Cake.find({flavor: flavor && query})
+  .sort({createdAt:-1})
+  .limit(limit + 1);
+
+  const hasNextPage= cakes.length>limit;
+  if(hasNextPage){
+    cakes.pop();
+  }
+
+  res.status(200).json({
+    cakes,
+    nextCursor:hasNextPage? cakes[cakes.length -1].createdAt: null,
+    message: "Cakes fetched successfully!"
+  })
+  }catch(error){
+    res.status(500).json({message:"Internal Server Error!"});
+  }
+}
 
 module.exports = {
   getAllCakes,
