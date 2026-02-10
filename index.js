@@ -53,7 +53,7 @@ app.use(express.json());
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? ['https://www.egglesscakes.in', 'https://eggless.vercel.app']
+      ? ['https://www.egglesscakes.in', 'https://eggless.vercel.app' , 'http://localhost:3000']
       : ['http://localhost:3000', 'https://eggless.vercel.app', "http://localhost:45678"],
     methods: ["GET", "POST"],
     credentials: true
@@ -75,7 +75,7 @@ app.use("/cake", cakeRoutes);
 app.use("/admin", adminRoutes);
 app.use("/auth", authRoutes);
 app.use('/delivery', deliveryRoutes);
-
+app.use("/uploads", express.static("uploads"));
 // Base route
 app.get("/", (req, res) => {
   res.send("Welcome to eggless");

@@ -80,7 +80,6 @@ const orderSchema = new mongoose.Schema({
     },
     state: {
       type: String,
-      required: true
     },
     pincode: {
       type: String,
@@ -129,6 +128,12 @@ const orderSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+    deliveryDate: {
+    type: Date
+  },
+  deliveryTime: {
+    type: String
   }
 });
 

@@ -1,4 +1,5 @@
 const Cake = require('../models/Cake');
+const multer = require("multer");
 function generateSlug(text) {
   return text
     .toLowerCase()
@@ -6,6 +7,31 @@ function generateSlug(text) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
+
+const BASE_URL = 'https://www.egglesscakes.in';
+// Multer Storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only images allowed"), false);
+    }
+  }
+});
+
+
 // Get all cakes
 const getAllCakes = async (req, res) => {
   try {
@@ -21,18 +47,18 @@ const getAllCakes2 = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const cursor = req.query.cursor;
     const query = cursor ? { createdAt: { $lt: new Date(cursor) } } : {};
-    const cakes= await Cake.find(query)
-    .sort({createdAt:-1})
-    .limit(limit+1)
+    const cakes = await Cake.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit + 1)
 
-    const hasNextPage= cakes.length > limit;
-    if(hasNextPage){
+    const hasNextPage = cakes.length > limit;
+    if (hasNextPage) {
       cakes.pop();
     }
     console.log(cakes.length);
     res.status(200).json({
       data: cakes,
-      nextCursor: hasNextPage? cakes[cakes.length -1].createdAt : null,
+      nextCursor: hasNextPage ? cakes[cakes.length - 1].createdAt : null,
       message: "Cake Fetched Successfully!"
     })
   } catch (error) {
@@ -67,28 +93,39 @@ const getCakeBySlug = async (req, res) => {
   }
 };
 
-// Create new cake
 const createCake = async (req, res) => {
   try {
     const { name } = req.body;
-console.log("REQ BODY:", req.body);
-    // Basic validation
+
     if (!name) {
       return res.status(400).json({ message: "Cake name is required" });
     }
 
-    // Generate slug
+    // 🟢 Generate slug safely
     let slug = generateSlug(name);
 
-    // Check if slug already exists
     const existingCake = await Cake.findOne({ slug });
     if (existingCake) {
-      slug = `${slug}-${Date.now()}`; // make slug unique
+      slug = `${slug}-${Date.now()}`;
+    }
+
+    // 🟢 Prepare safe body (prevent slug/image overwrite)
+    const { slug: bodySlug, image: bodyImage, ...rest } = req.body;
+
+    // 🟢 If image uploaded via multer → use full URL
+    let imageUrl = "";
+    if (req.file) {
+      imageUrl = `https://egglesscake-backend.fly.dev/uploads/${req.file.filename}`;
+    } 
+    // 🟢 If no new image but frontend sent Firebase URL → allow it
+    else if (bodyImage) {
+      imageUrl = bodyImage;
     }
 
     const cake = new Cake({
-      ...req.body,
+      ...rest,
       slug,
+      image: imageUrl,
     });
 
     const savedCake = await cake.save();
@@ -114,7 +151,7 @@ const createMultipleCakes = async (req, res) => {
     const cakes = req.body; // Assuming the request body contains an array of cakes
     for (let cake of cakes) {
       const slug = generateSlug(cake.name);
-      cake.slug=slug;
+      cake.slug = slug;
     }
     const savedCakes = await Cake.insertMany(cakes);
     res.status(201).json(savedCakes);
@@ -129,16 +166,60 @@ const updateCake = async (req, res) => {
   try {
     const cake = await Cake.findById(req.params.id);
     if (!cake) {
-      return res.status(404).json({ message: 'Cake not found' });
+      return res.status(404).json({ message: "Cake not found" });
     }
 
-    Object.assign(cake, req.body);
+    // 🟢 If name updated → regenerate slug
+    if (req.body.name && req.body.name !== cake.name) {
+      let newSlug = generateSlug(req.body.name);
+
+      const existingCake = await Cake.findOne({ slug: newSlug });
+      if (existingCake && existingCake._id.toString() !== cake._id.toString()) {
+        newSlug = `${newSlug}-${Date.now()}`;
+      }
+
+      cake.slug = newSlug;
+    }
+
+    // 🟢 If new image uploaded → delete old image + save new one
+    if (req.file) {
+
+      // Delete old image ONLY if it is local upload
+      if (cake.image && cake.image.includes("/uploads/")) {
+        const filename = cake.image.split("/uploads/")[1];
+        const oldImagePath = path.join(__dirname, "..", "uploads", filename);
+
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      // Save new full image URL
+      cake.image = `https://egglesscake-backend.fly.dev/uploads/${req.file.filename}`;
+    }
+
+
+const { slug, image, ...rest } = req.body;
+Object.assign(cake, rest);
+
+
     const updatedCake = await cake.save();
-    res.status(200).json(updatedCake);
+
+    res.status(200).json({
+      success: true,
+      message: "Cake updated successfully",
+      data: updatedCake
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Update Cake Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
 };
+
 
 // Delete cake
 const deleteCake = async (req, res) => {
@@ -189,28 +270,28 @@ const addReview = async (req, res) => {
   }
 };
 
-const getCakeByFlavor=async (req,res)=>{
-  const {flavor} =req.body;
+const getCakeByFlavor = async (req, res) => {
+  const { flavor } = req.body;
   const limit = parseInt(req.body.query.limit) || 10;
   const cursor = query.cursor;
-  const query= cursor?{ createdAt: { $lt: new Date(cursor) } } : {};
-  try{
-  const cakes= await Cake.find({flavor: flavor && query})
-  .sort({createdAt:-1})
-  .limit(limit + 1);
+  const query = cursor ? { createdAt: { $lt: new Date(cursor) } } : {};
+  try {
+    const cakes = await Cake.find({ flavor: flavor && query })
+      .sort({ createdAt: -1 })
+      .limit(limit + 1);
 
-  const hasNextPage= cakes.length>limit;
-  if(hasNextPage){
-    cakes.pop();
-  }
+    const hasNextPage = cakes.length > limit;
+    if (hasNextPage) {
+      cakes.pop();
+    }
 
-  res.status(200).json({
-    cakes,
-    nextCursor:hasNextPage? cakes[cakes.length -1].createdAt: null,
-    message: "Cakes fetched successfully!"
-  })
-  }catch(error){
-    res.status(500).json({message:"Internal Server Error!"});
+    res.status(200).json({
+      cakes,
+      nextCursor: hasNextPage ? cakes[cakes.length - 1].createdAt : null,
+      message: "Cakes fetched successfully!"
+    })
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error!" });
   }
 }
 
@@ -223,5 +304,6 @@ module.exports = {
   createMultipleCakes,
   updateCake,
   deleteCake,
-  addReview
+  addReview,
+  upload
 }; 

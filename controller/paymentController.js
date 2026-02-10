@@ -19,7 +19,7 @@ const paymentOrder = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress, orderInstruction } = req.body;
+    const { items, totalAmount, currency = 'INR', tax, shippingcharge, shippingAddress, orderInstruction , deliveryDate, deliveryTime} = req.body;
 
     const totalAmountInt = parseInt(totalAmount);
     // Validate amount
@@ -59,7 +59,9 @@ const paymentOrder = async (req, res) => {
       items,
       assignedToAdmin: assignedAdmin,
       tax: tax,
-      shippingcharge: shippingcharge
+      shippingcharge: shippingcharge,
+      deliveryDate: deliveryDate,
+      deliveryTime: deliveryTime
     });
 
 
@@ -164,8 +166,9 @@ const handleCODPayment = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
+    console.log(req.body);
 
-    const { items,tax, shippingcharge, shippingAddress, totalAmount, orderInstruction } = req.body;
+    const { items,tax, shippingcharge, shippingAddress, totalAmount, orderInstruction , deliveryDate, deliveryTime} = req.body;
 
     // Validate required fields
     if (!items || !shippingAddress || !totalAmount) {
@@ -200,7 +203,9 @@ const handleCODPayment = async (req, res) => {
       assignedToAdmin: assignedAdmin,
       orderInstructions: orderInstruction,
       tax: tax,
-      shippingcharge: shippingcharge
+      shippingcharge: shippingcharge,
+      deliveryDate: deliveryDate,
+      deliveryTime: deliveryTime
     });
 
     await order.save();
@@ -267,7 +272,7 @@ const confirmCODPayment = async (req, res) => {
 const payWithWallet = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { items,tax, shippingcharge, totalAmount, shippingAddress, orderInstruction } = req.body;
+    const { items,tax, shippingcharge, totalAmount, shippingAddress, orderInstruction , deliveryDate, deliveryTime } = req.body;
 
     if (!items || !totalAmount || !shippingAddress) {
       return res.status(400).json({ message: 'Incomplete order data' });
@@ -317,7 +322,9 @@ const payWithWallet = async (req, res) => {
       assignedToAdmin: assignedAdmin,
       orderInstructions: orderInstruction,
       tax: tax,
-      shippingcharge: shippingcharge
+      shippingcharge: shippingcharge,
+      deliveryDate: deliveryDate,
+      deliveryTime: deliveryTime
     });
 
     const savedOrder = await newOrder.save();

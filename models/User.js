@@ -12,11 +12,9 @@ const addressSchema = new mongoose.Schema({
   },
   city: {
     type: String,
-    required: true
   },
   state: {
     type: String,
-    required: true
   },
   pincode: {
     type: String,
@@ -200,13 +198,13 @@ const userSchema = new mongoose.Schema({
 });
 
 // Remove password comparison method since we're using phone auth
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Hash password before saving (only if password is provided)
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (this.isModified('password') && this.password) {
     this.password = await bcrypt.hash(this.password, 8);
   }
@@ -214,7 +212,7 @@ userSchema.pre('save', async function(next) {
 });
 
 // Add method to get user's orders with pagination
-userSchema.methods.getOrders = async function(page = 1, limit = 10) {
+userSchema.methods.getOrders = async function (page = 1, limit = 10) {
   const skip = (page - 1) * limit;
   return mongoose.model('Order').find({ user: this._id })
     .sort({ createdAt: -1 })
@@ -224,12 +222,12 @@ userSchema.methods.getOrders = async function(page = 1, limit = 10) {
 };
 
 // Add method to get user's wallet balance
-userSchema.methods.getWalletBalance = function() {
+userSchema.methods.getWalletBalance = function () {
   return this.wallet.balance;
 };
 
 // Add method to update wallet balance
-userSchema.methods.updateWalletBalance = async function(amount, type, description) {
+userSchema.methods.updateWalletBalance = async function (amount, type, description) {
   this.wallet.balance += type === 'Credit' ? amount : -amount;
   this.wallet.transactions.push({
     type,

@@ -9,7 +9,8 @@ const {
   createMultipleCakes,
   updateCake, 
   deleteCake,
-  addReview 
+  addReview,
+  upload
 } = require('../controller/cakeController');
 const { protect } = require('../middleware/authMiddleware');
 const auth =require("../middleware/auth")
@@ -23,9 +24,9 @@ router.get('/slug/:slug', getCakeBySlug);
 router.post('/:id/reviews', auth, addReview);
 
 // Admin only routes
-router.post('/', createCake);
+router.post('/',upload.single("image"), createCake);
 router.post('/many', createMultipleCakes);
-router.put('/:id', protect, updateCake);
+router.put('/:id', protect, upload.single("image"), updateCake);
 router.delete('/:id', protect, deleteCake);
 
 module.exports = router; 
