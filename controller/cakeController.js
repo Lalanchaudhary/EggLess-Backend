@@ -8,7 +8,6 @@ function generateSlug(text) {
     .replace(/(^-|-$)/g, "");
 }
 
-const BASE_URL = 'https://www.egglesscakes.in';
 // Multer Storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

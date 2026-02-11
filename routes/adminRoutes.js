@@ -3,6 +3,7 @@ const router = express.Router();
 const adminController = require('../controller/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const auth = require('../middleware/auth');
+const upload = require('../middleware/uploads');
 // This route is protected but doesn't require admin role
 router.get('/details', auth, adminController.getAdminDetails);
 // Admins
@@ -22,8 +23,8 @@ router.delete('/users/:id', adminController.deleteUser);
 
 // Products Management
 router.get('/products', adminController.getAllProducts);
-router.post('/products', adminController.createProduct);
-router.put('/products/:id', adminController.updateProduct);
+router.post('/products', upload.single("image"), adminController.createProduct);
+router.put('/products/:id', upload.single("image"), adminController.updateProduct);
 router.delete('/products/:id', adminController.deleteProduct);
 
 // Orders Management

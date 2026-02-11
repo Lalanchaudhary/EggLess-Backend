@@ -3,6 +3,16 @@ const Product = require('../models/Cake');
 const User = require('../models/User');
 const Admin = require('../models/admin');
 const SocketService = require('../services/socketService');
+
+function generateSlug(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+
 // Dashboard Statistics
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -198,29 +208,111 @@ exports.getAllProducts = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
-    const product = new Product(req.body);
-    await product.save();
-    res.status(201).json({ product });
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Cake name is required" });
+    }
+
+    // 🟢 Generate slug safely
+    let slug = generateSlug(name);
+
+    const existingCake = await Cake.findOne({ slug });
+    if (existingCake) {
+      slug = `${slug}-${Date.now()}`;
+    }
+
+    // 🟢 Prepare safe body (prevent slug/image overwrite)
+    const { slug: bodySlug, image: bodyImage, ...rest } = req.body;
+
+    // 🟢 If image uploaded via multer → use full URL
+    let imageUrl = "";
+    if (req.file) {
+      imageUrl = `https://egglesscake-backend.fly.dev/uploads/${req.file.filename}`;
+    } 
+    // 🟢 If no new image but frontend sent Firebase URL → allow it
+    else if (bodyImage) {
+      imageUrl = bodyImage;
+    }
+
+    const cake = new Cake({
+      ...rest,
+      slug,
+      image: imageUrl,
+    });
+
+    const savedCake = await cake.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Cake created successfully",
+      data: savedCake,
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Create Cake Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
 exports.updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    const cake = await Cake.findById(req.params.id);
+    if (!cake) {
+      return res.status(404).json({ message: "Cake not found" });
     }
 
-    res.json({ product });
+    // 🟢 If name updated → regenerate slug
+    if (req.body.name && req.body.name !== cake.name) {
+      let newSlug = generateSlug(req.body.name);
+
+      const existingCake = await Cake.findOne({ slug: newSlug });
+      if (existingCake && existingCake._id.toString() !== cake._id.toString()) {
+        newSlug = `${newSlug}-${Date.now()}`;
+      }
+
+      cake.slug = newSlug;
+    }
+
+    // 🟢 If new image uploaded → delete old image + save new one
+    if (req.file) {
+
+      // Delete old image ONLY if it is local upload
+      if (cake.image && cake.image.includes("/uploads/")) {
+        const filename = cake.image.split("/uploads/")[1];
+        const oldImagePath = path.join(__dirname, "..", "uploads", filename);
+
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      // Save new full image URL
+      cake.image = `https://egglesscake-backend.fly.dev/uploads/${req.file.filename}`;
+    }
+
+
+const { slug, image, ...rest } = req.body;
+Object.assign(cake, rest);
+
+
+    const updatedCake = await cake.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cake updated successfully",
+      data: updatedCake
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("Update Cake Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
 };
 
