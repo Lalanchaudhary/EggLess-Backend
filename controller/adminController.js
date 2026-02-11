@@ -11,6 +11,27 @@ function generateSlug(text) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
+const parseJSONFields = (body) => {
+  const fieldsToParse = [
+    "sizes",
+    "ingredients",
+    "allergens",
+    "nutritionInfo",
+    "reviewsList"
+  ];
+
+  fieldsToParse.forEach(field => {
+    if (body[field] && typeof body[field] === "string") {
+      try {
+        body[field] = JSON.parse(body[field]);
+      } catch (err) {
+        console.log(`Failed to parse ${field}`);
+      }
+    }
+  });
+
+  return body;
+};
 
 
 // Dashboard Statistics
@@ -208,6 +229,7 @@ exports.getAllProducts = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   try {
+    req.body = parseJSONFields(req.body);
     const { name } = req.body;
 
     if (!name) {
@@ -260,6 +282,7 @@ exports.createProduct = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   try {
+    req.body = parseJSONFields(req.body);
     const cake = await Cake.findById(req.params.id);
     if (!cake) {
       return res.status(404).json({ message: "Cake not found" });
