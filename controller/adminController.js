@@ -1,5 +1,5 @@
 const Order = require('../models/Order');
-const Product = require('../models/Cake');
+const Cake = require('../models/Cake');
 const User = require('../models/User');
 const Admin = require('../models/admin');
 const SocketService = require('../services/socketService');
@@ -22,7 +22,7 @@ exports.getDashboardStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
     const totalUsers = await User.countDocuments();
-    const totalProducts = await Product.countDocuments();
+    const totalProducts = await Cake.countDocuments();
 
     // Get recent orders
     const recentOrders = await Order.find()
@@ -199,7 +199,7 @@ exports.assignOrderToAdmin = async (req, res) => {
 // Product Management
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
+    const products = await Cake.find().sort({ createdAt: -1 });
     res.json({ products });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -318,7 +318,7 @@ Object.assign(cake, rest);
 
 exports.deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Cake.findByIdAndDelete(req.params.id);
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -452,7 +452,7 @@ exports.getProductAnalytics = async (req, res) => {
       { $unwind: '$product' }
     ]);
 
-    const categoryDistribution = await Product.aggregate([
+    const categoryDistribution = await Cake.aggregate([
       {
         $group: {
           _id: '$category',
