@@ -34,7 +34,7 @@ const upload = multer({
 // Get all cakes
 const getAllCakes = async (req, res) => {
   try {
-    const cakes = await Cake.find();
+    const cakes = await Cake.find().sort({ createdAt: -1 }); // ⭐ newest first;
     res.status(200).json(cakes);
   } catch (error) {
     res.status(500).json({ message: error.message });

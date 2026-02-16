@@ -13,7 +13,6 @@ const cakeSchema = new mongoose.Schema({
   slug: { type: String, unique: true },
   category: { type: String, required: true },
   flavor: { type: String },
-  price: { type: Number, required: true },
   image: { type: String, required: true },
   rating: { type: Number, default: 0 },
   reviews: { type: Number, default: 0 }, // renamed from "reviewCount"
@@ -21,9 +20,6 @@ const cakeSchema = new mongoose.Schema({
   sizes: [sizeSchema],
   label: { type: String },
   tag: { type: String },
-
-  // Optional fields (you can still use them later if needed)
-  original_price: { type: Number },
   ingredients: [String],
   allergens: [String],
   nutritionInfo: {

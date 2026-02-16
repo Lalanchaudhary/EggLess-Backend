@@ -284,43 +284,52 @@ exports.updateProduct = async (req, res) => {
   try {
     req.body = parseJSONFields(req.body);
     const cake = await Cake.findById(req.params.id);
+
     if (!cake) {
       return res.status(404).json({ message: "Cake not found" });
     }
 
-    // 🟢 If name updated → regenerate slug
+    // slug regenerate
     if (req.body.name && req.body.name !== cake.name) {
       let newSlug = generateSlug(req.body.name);
-
       const existingCake = await Cake.findOne({ slug: newSlug });
+
       if (existingCake && existingCake._id.toString() !== cake._id.toString()) {
         newSlug = `${newSlug}-${Date.now()}`;
       }
-
       cake.slug = newSlug;
     }
 
-    // 🟢 If new image uploaded → delete old image + save new one
+    // image update
     if (req.file) {
-
-      // Delete old image ONLY if it is local upload
       if (cake.image && cake.image.includes("/uploads/")) {
         const filename = cake.image.split("/uploads/")[1];
         const oldImagePath = path.join(__dirname, "..", "uploads", filename);
-
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
+        if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
       }
 
-      // Save new full image URL
       cake.image = `https://egglesscake-backend.fly.dev/uploads/${req.file.filename}`;
     }
 
+    // ✅ update only allowed fields
+    const allowedFields = [
+      "tag","label"
+    ];
 
-const { slug, image, ...rest } = req.body;
-Object.assign(cake, rest);
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        cake[field] = req.body[field];
+      }
+    });
 
+    // ✅ protect number fields
+    if (req.body.rating !== undefined) {
+      cake.rating = isNaN(req.body.rating) ? 0 : Number(req.body.rating);
+    }
+
+    if (req.body.reviews !== undefined) {
+      cake.reviews = isNaN(req.body.reviews) ? 0 : Number(req.body.reviews);
+    }
 
     const updatedCake = await cake.save();
 
