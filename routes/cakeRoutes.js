@@ -21,7 +21,7 @@ router.get('/:id', getCakeById);
 router.get('/slug/:slug', getCakeBySlug);
 
 // Protected routes (require authentication)
-router.post('/:id/reviews', auth, addReview);
+router.post('/:id/reviews',upload.array("images", 5), addReview);
 
 // Admin only routes
 router.post('/',upload.single("image"), createCake);

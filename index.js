@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http"); // Import http module
 const { Server } = require("socket.io"); // Import socket.io
 const connectDB = require("./config/database");
+const sitemapRoute = require("./routes/sitemap");
 const cors = require("cors");
 require("dotenv").config();
 const cookieParser = require("cookie-parser");
@@ -76,6 +77,7 @@ app.use("/admin", adminRoutes);
 app.use("/auth", authRoutes);
 app.use('/delivery', deliveryRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/", sitemapRoute);
 // Base route
 app.get("/", (req, res) => {
   res.send("Welcome to eggless");

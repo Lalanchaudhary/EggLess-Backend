@@ -237,37 +237,69 @@ const deleteCake = async (req, res) => {
 
 // Add review to cake
 const addReview = async (req, res) => {
-  console.log('====================================');
-  console.log("review", req.body);
-  console.log('====================================');
+  console.log("Add Review Called with body:", req.body);
+  console.log("Uploaded files:", req.params.id);
   try {
-    const cake = await Cake.findById(req.params.id);
+    const cake = await Cake.findOne({ slug: req.params.id });
+
     if (!cake) {
-      return res.status(404).json({ message: 'Cake not found' });
+      return res.status(404).json({ message: "Cake not found" });
     }
 
-    const { name, rating, comment } = req.body;
-    const review = {
-      id: cake.reviewsList.length + 1,
-      name,
-      rating,
+    const { userName, rating, comment } = req.body;
+
+    // ⭐ Validation
+    if (!userName || !rating || !comment) {
+      return res.status(400).json({
+        message: "Name, rating and comment are required"
+      });
+    }
+
+    // ⭐ Prevent duplicate review from same name (optional)
+    const alreadyReviewed = cake.reviews.find(
+      (r) => r.userName.toLowerCase() === userName.toLowerCase()
+    );
+
+    if (alreadyReviewed) {
+      return res.status(400).json({
+        message: "You already reviewed this cake"
+      });
+    }
+
+    // ⭐ Get uploaded images from multer
+    let reviewImages = [];
+    if (req.files && req.files.length > 0) {
+      reviewImages = req.files.map(file => file.path); 
+      // If using Cloudinary use file.path or file.secure_url depending on config
+    }
+
+    // ⭐ Create review object
+    const newReview = {
+      userName,
+      rating: Number(rating),
       comment,
-      date: new Date()
+      images: reviewImages,
+      verifiedPurchase: false
     };
 
-    cake.reviewsList.push(review);
+    // ⭐ Push review
+    cake.reviews.push(newReview);
 
-    // Update average rating
-    const totalRating = cake.reviewsList.reduce((sum, review) => sum + review.rating, 0);
-    cake.rating = totalRating / cake.reviewsList.length;
-    cake.reviewCount = cake.reviewsList.length;
+    // ⭐ Save (middleware auto calculates rating)
+    await cake.save();
 
-    const updatedCake = await cake.save();
-    res.status(200).json(updatedCake);
+    res.status(201).json({
+      message: "Review added successfully",
+      averageRating: cake.averageRating,
+      totalReviews: cake.totalReviews,
+      reviews: cake.reviews
+    });
+
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
+
 
 const getCakeByFlavor = async (req, res) => {
   const { flavor } = req.body;

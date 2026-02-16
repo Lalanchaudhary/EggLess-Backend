@@ -1,45 +1,102 @@
 const mongoose = require('mongoose');
 
+
+// ⭐ Review Schema (Production Level)
+const reviewSchema = new mongoose.Schema({
+  userName: {
+    type: String,
+    required: true
+  },
+
+  rating: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 5
+  },
+
+  comment: {
+    type: String,
+    required: true,
+    maxlength: 500
+  },
+
+  verifiedPurchase: {
+    type: Boolean,
+    default: false
+  },
+
+  images: [String], // customer cake photos
+
+  ownerReply: {
+    message: String,
+    date: Date
+  }
+
+}, { timestamps: true });
+
+
 // Sizes schema
 const sizeSchema = new mongoose.Schema({
-  size: { type: String, required: false },
+  size: String,
   serves: { type: String, default: "N/A" },
-  price: { type: Number, required: false }
+  price: Number
 }, { _id: false });
 
-// Main Cake schema
+
+// ⭐ Main Cake Schema
 const cakeSchema = new mongoose.Schema({
+
   name: { type: String, required: true },
   slug: { type: String, unique: true },
   category: { type: String, required: true },
-  flavor: { type: String },
+  flavor: String,
   image: { type: String, required: true },
-  rating: { type: Number, default: 0 },
-  reviews: { type: Number, default: 0 }, // renamed from "reviewCount"
-  description: { type: String },
+
+  description: String,
   sizes: [sizeSchema],
-  label: { type: String },
-  tag: { type: String },
+  label: String,
+  tag: String,
   ingredients: [String],
   allergens: [String],
+
   nutritionInfo: {
     calories: String,
     protein: String,
     carbs: String,
     fat: String
   },
-  reviewsList: [ // renamed from `reviews` to avoid confusion
-    {
-      id: Number,
-      name: String,
-      rating: Number,
-      comment: String,
-      date: Date
-    }
-  ]
+
+  // ⭐ Reviews stored here
+  reviews: [reviewSchema],
+
+  // ⭐ Auto calculated fields
+  averageRating: {
+    type: Number,
+    default: 0
+  },
+
+  totalReviews: {
+    type: Number,
+    default: 0
+  }
+
 }, { timestamps: true });
 
 cakeSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.models.Cake || mongoose.model("Cake", cakeSchema);
 
+// ⭐ Automatically update rating before saving
+cakeSchema.pre("save", function (next) {
+  if (this.reviews.length > 0) {
+    const total = this.reviews.reduce((acc, item) => acc + item.rating, 0);
+    this.averageRating = (total / this.reviews.length).toFixed(1);
+    this.totalReviews = this.reviews.length;
+  } else {
+    this.averageRating = 0;
+    this.totalReviews = 0;
+  }
+  next();
+});
+
+module.exports = mongoose.models.Cake || mongoose.model("Cake", cakeSchema);
